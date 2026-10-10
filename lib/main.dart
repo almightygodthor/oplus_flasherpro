@@ -46,7 +46,7 @@ class FlasherProApp extends StatelessWidget {
           surface: const Color(0xFF181A1F),
         ),
         cardTheme: CardThemeData(
-          color: const Color(0xFF181A1F),
+          color: const Color(0xCC20232B),
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
@@ -349,14 +349,21 @@ class _FlasherHomeState extends State<FlasherHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Row(
+      body: Stack(
+        children: [
+          const Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(color: Color(0xFF101114)))),
+          Positioned(top: -180, left: 180, child: _ambientGlow(const Color(0xFF386BFF), 420)),
+          Positioned(top: -130, right: 80, child: _ambientGlow(const Color(0xFFFF476F), 360)),
+          Positioned(bottom: -230, right: 240, child: _ambientGlow(const Color(0xFF8A4DFF), 460)),
+          Row(
         children: [
           Container(
             width: 235,
             padding: const EdgeInsets.fromLTRB(18, 24, 14, 18),
-            decoration: const BoxDecoration(
-              color: Color(0xFF15161A),
-              border: Border(right: BorderSide(color: Color(0xFF292B31))),
+            decoration: BoxDecoration(
+              color: const Color(0xB815161A),
+              border: const Border(right: BorderSide(color: Color(0x553C414D))),
+              boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 28, offset: Offset(8, 0))],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,15 +432,15 @@ class _FlasherHomeState extends State<FlasherHome> {
                   const SizedBox(height: 24),
                   Expanded(
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 240),
-                      reverseDuration: const Duration(milliseconds: 180),
-                      switchInCurve: Curves.easeOutCubic,
+                      duration: const Duration(milliseconds: 420),
+                      reverseDuration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeOutQuart,
                       switchOutCurve: Curves.easeInCubic,
                       transitionBuilder: (child, animation) => FadeTransition(
                         opacity: animation,
                         child: SlideTransition(
                           position: Tween<Offset>(
-                            begin: const Offset(0.012, 0),
+                            begin: const Offset(0.035, 0.008),
                             end: Offset.zero,
                           ).animate(animation),
                           child: child,
@@ -453,7 +460,16 @@ class _FlasherHomeState extends State<FlasherHome> {
           ),
         ],
       ),
+        ],
+      ),
     );
+  }
+
+  Widget _ambientGlow(Color color, double size) {
+    return IgnorePointer(child: ImageFiltered(
+      imageFilter: ImageFilter.blur(sigmaX: 75, sigmaY: 75),
+      child: Container(width: size, height: size, decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.16))),
+    ));
   }
 
   Widget _navItem(FlasherSection section, IconData icon, String label) {
@@ -464,8 +480,8 @@ class _FlasherHomeState extends State<FlasherHome> {
         borderRadius: BorderRadius.circular(10),
         onTap: () => setState(() => _section = section),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 190),
-          curve: Curves.easeOutCubic,
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutQuart,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
           decoration: BoxDecoration(
             color: selected ? const Color(0xFF282C23).withValues(alpha: 0.88) : Colors.transparent,
@@ -504,13 +520,45 @@ class _FlasherHomeState extends State<FlasherHome> {
   }
 
   Widget _toolTile(IconData icon, String title, String subtitle, VoidCallback onTap) {
-    return SizedBox(width: 205, height: 158, child: Card(clipBehavior: Clip.antiAlias, child: InkWell(
-      onTap: onTap, child: Padding(padding: const EdgeInsets.all(18), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Container(width: 64, height: 64, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .055), borderRadius: BorderRadius.circular(16)), child: Icon(icon, size: 34, color: const Color(0xFFB8F36B))),
-        const SizedBox(height: 12), Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 4), Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-      ])),
-    )));
+    final colors = switch (title) {
+      'Platform Tools' => (const Color(0xFF69AFFF), const Color(0xFF34315C)),
+      'Logcat' => (const Color(0xFFFFA044), const Color(0xFF57334C)),
+      'Drivers' => (const Color(0xFF45D6A0), const Color(0xFF254B4C)),
+      _ => (const Color(0xFFB8F36B), const Color(0xFF3D4B2E)),
+    };
+    return SizedBox(
+      width: 225,
+      height: 174,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Material(
+            color: const Color(0xA822242B),
+            child: InkWell(
+              onTap: onTap,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 360),
+                curve: Curves.easeOutQuart,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [colors.$2.withValues(alpha: .70), const Color(0x7721242B), const Color(0x3321242B)]),
+                  border: Border.all(color: Colors.white.withValues(alpha: .08)),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(width: 58, height: 58, decoration: BoxDecoration(color: colors.$1.withValues(alpha: .10), borderRadius: BorderRadius.circular(15), border: Border.all(color: colors.$1.withValues(alpha: .24))), child: Icon(icon, size: 32, color: colors.$1)),
+                  const Spacer(),
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 11)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   String get _adbExecutable {
