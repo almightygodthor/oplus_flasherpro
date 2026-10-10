@@ -80,7 +80,7 @@ class FlasherProApp extends StatelessWidget {
   }
 }
 
-enum FlasherSection { platformTools, unpacker, flasher }
+enum FlasherSection { extraTools, logcat, drivers, platformTools, unpacker, flasher }
 
 class FlasherHome extends StatefulWidget {
   const FlasherHome({super.key});
@@ -98,8 +98,20 @@ class _FlasherHomeState extends State<FlasherHome> {
   final List<String> _log = [];
   bool _busy = false;
   bool _skipPreloaderRaw = true;
+  Process? _logcatProcess;
+  bool _logcatRunning = false;
+  String _logcatBuffer = 'main';
+  String _logcatLevel = 'Verbose';
+  String _logcatSearch = '';
+  final List<String> _logcatLines = [];
+  final List<String> _driverPackages = [];
+  String? _selectedDriver;
+  String? _driverOutput;
 
   String get _sectionTitle => switch (_section) {
+        FlasherSection.extraTools => 'Extra Tools',
+        FlasherSection.logcat => 'Logcat',
+        FlasherSection.drivers => 'Drivers',
         FlasherSection.platformTools => 'Platform Tools',
         FlasherSection.unpacker => 'Firmware Unpacker',
         FlasherSection.flasher => 'Firmware Flasher',
@@ -365,6 +377,8 @@ class _FlasherHomeState extends State<FlasherHome> {
                 const SizedBox(height: 8),
                 const Text('FASTBOOT UTILITIES', style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1.6)),
                 const SizedBox(height: 34),
+                _navItem(FlasherSection.extraTools, Icons.widgets_outlined, 'Extra Tools'),
+                _navItem(FlasherSection.drivers, Icons.usb_rounded, 'Drivers'),
                 _navItem(FlasherSection.platformTools, Icons.terminal_rounded, 'Platform Tools'),
                 _navItem(FlasherSection.unpacker, Icons.inventory_2_outlined, 'Firmware Unpacker'),
                 _navItem(FlasherSection.flasher, Icons.memory_rounded, 'Firmware Flasher'),
@@ -392,6 +406,9 @@ class _FlasherHomeState extends State<FlasherHome> {
                             const SizedBox(height: 5),
                             Text(
                               switch (_section) {
+                                FlasherSection.extraTools => 'Quick access to Android utilities.',
+                                FlasherSection.logcat => 'Stream, filter, and save Android device logs.',
+                                FlasherSection.drivers => 'Install USB drivers and manage Windows driver packages.',
                                 FlasherSection.platformTools => 'Open a ready-to-use Fastboot command window.',
                                 FlasherSection.unpacker => 'Extract ZIP firmware packages to a folder you choose.',
                                 FlasherSection.flasher => 'Review image files and flash selected partitions.',
@@ -469,10 +486,173 @@ class _FlasherHomeState extends State<FlasherHome> {
 
   Widget _sectionContent() {
     return switch (_section) {
+      FlasherSection.extraTools => _extraToolsPanel(),
+      FlasherSection.logcat => _logcatPanel(),
+      FlasherSection.drivers => _driversPanel(),
       FlasherSection.platformTools => _platformToolsPanel(),
       FlasherSection.unpacker => _unpackerPanel(),
       FlasherSection.flasher => _flasherPanel(),
     };
+  }
+
+  Widget _extraToolsPanel() {
+    return Wrap(spacing: 16, runSpacing: 16, children: [
+      _toolTile(Icons.terminal_rounded, 'Platform Tools', 'Open ADB / Fastboot CMD', () => setState(() => _section = FlasherSection.platformTools)),
+      _toolTile(Icons.bug_report_outlined, 'Logcat', 'Live Android system logs', () => setState(() => _section = FlasherSection.logcat)),
+    ]);
+  }
+
+  Widget _toolTile(IconData icon, String title, String subtitle, VoidCallback onTap) {
+    return SizedBox(width: 205, height: 158, child: Card(clipBehavior: Clip.antiAlias, child: InkWell(
+      onTap: onTap, child: Padding(padding: const EdgeInsets.all(18), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Container(width: 64, height: 64, decoration: BoxDecoration(color: Colors.white.withValues(alpha: .055), borderRadius: BorderRadius.circular(16)), child: Icon(icon, size: 34, color: const Color(0xFFB8F36B))),
+        const SizedBox(height: 12), Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 4), Text(subtitle, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+      ])),
+    )));
+  }
+
+  String get _adbExecutable {
+    final dir = _platformToolsDirectory();
+    return dir == null ? 'adb' : p.join(dir, Platform.isWindows ? 'adb.exe' : 'adb');
+  }
+
+  Future<void> _startLogcat() async {
+    if (_logcatRunning) return;
+    try {
+      final process = await Process.start(_adbExecutable, ['logcat', '-b', _logcatBuffer, '*:${_logcatLevel.substring(0, 1)}'], runInShell: false);
+      _logcatProcess = process;
+      setState(() => _logcatRunning = true);
+      process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
+        if (!mounted) return;
+        setState(() {
+          _logcatLines.add(line);
+          if (_logcatLines.length > 5000) _logcatLines.removeRange(0, 500);
+        });
+      });
+      process.stderr.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) { if (mounted) _writeLog('adb: $line'); });
+      process.exitCode.then((code) { if (mounted) setState(() => _logcatRunning = false); _writeLog('Logcat stopped (exit $code).'); });
+    } catch (error) {
+      setState(() => _logcatRunning = false);
+      _writeLog('Could not start Logcat: $error');
+    }
+  }
+
+  Future<void> _stopLogcat() async {
+    _logcatProcess?.kill();
+    _logcatProcess = null;
+    if (mounted) setState(() => _logcatRunning = false);
+  }
+
+  List<String> get _filteredLogcat => _logcatLines.where((line) => line.toLowerCase().contains(_logcatSearch.toLowerCase())).toList();
+
+  Future<void> _saveLogcat() async {
+    final path = await FilePicker.platform.saveFile(dialogTitle: 'Save Logcat output', fileName: 'flasherpro-logcat.txt', type: FileType.custom, allowedExtensions: ['txt', 'log']);
+    if (path == null) return;
+    await File(path).writeAsString(_filteredLogcat.join('\n'));
+    _writeLog('Saved Logcat to $path');
+  }
+
+  Widget _logcatPanel() {
+    return Column(children: [
+      Card(child: Padding(padding: const EdgeInsets.all(10), child: Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        _statusPill(_logcatRunning ? 'STREAMING' : 'STOPPED', _logcatRunning),
+        FilledButton(onPressed: _logcatRunning ? _stopLogcat : _startLogcat, child: Text(_logcatRunning ? 'Stop' : 'Start')),
+        const Text('Buffer', style: TextStyle(color: Colors.white60, fontSize: 12)),
+        DropdownButton<String>(value: _logcatBuffer, items: const ['main','system','radio','events','crash','all'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: _logcatRunning ? null : (v) => setState(() => _logcatBuffer = v ?? 'main')),
+        const Text('Level', style: TextStyle(color: Colors.white60, fontSize: 12)),
+        DropdownButton<String>(value: _logcatLevel, items: const ['Verbose','Debug','Info','Warn','Error','Fatal'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: _logcatRunning ? null : (v) => setState(() => _logcatLevel = v ?? 'Verbose')),
+        SizedBox(width: 160, child: TextField(decoration: const InputDecoration(hintText: 'Search logs…', isDense: true), onChanged: (v) => setState(() => _logcatSearch = v))),
+        OutlinedButton(onPressed: () => setState(_logcatLines.clear), child: const Text('Clear')),
+        OutlinedButton(onPressed: _saveLogcat, child: const Text('Save')),
+      ]))),
+      const SizedBox(height: 8),
+      Expanded(child: Card(child: _filteredLogcat.isEmpty
+        ? Center(child: Text(_logcatRunning ? 'Waiting for log entries…' : 'Press Start to stream logcat', style: const TextStyle(color: Colors.white54)))
+        : ListView.builder(itemCount: _filteredLogcat.length, itemBuilder: (context, i) => Padding(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2), child: SelectableText(_filteredLogcat[i], style: const TextStyle(fontFamily: 'Consolas', fontSize: 11, color: Colors.white70)))))),
+    ]);
+  }
+
+  Future<void> _refreshDrivers() async {
+    try {
+      final result = await Process.run('pnputil.exe', ['/enum-drivers'], runInShell: false);
+      final output = '${result.stdout}\n${result.stderr}'.trim();
+      final packages = RegExp(r'Published Name:\s*(oem\d+\.inf)', caseSensitive: false).allMatches(output).map((m) => m.group(1)!).toList();
+      setState(() {
+        _driverPackages..clear()..addAll(packages);
+        _driverOutput = output.isEmpty ? 'No driver information returned.' : output;
+        if (_selectedDriver != null && !_driverPackages.contains(_selectedDriver)) _selectedDriver = null;
+      });
+      _writeLog('Loaded ${packages.length} published driver package(s).');
+    } catch (error) {
+      setState(() => _driverOutput = 'Could not enumerate drivers: $error');
+    }
+  }
+
+  Future<void> _installDriver() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['inf'], dialogTitle: 'Select USB driver INF');
+    final path = result?.files.single.path;
+    if (path == null) return;
+    final escaped = path.replaceAll("'", "''");
+    final script = "Start-Process -FilePath 'pnputil.exe' -ArgumentList @('/add-driver', '$escaped', '/install') -Verb RunAs -Wait";
+    try {
+      final proc = await Process.run('powershell.exe', ['-NoProfile','-Command',script]);
+      setState(() => _driverOutput = 'Driver install request finished.\n${proc.stdout}\n${proc.stderr}');
+      _writeLog('Driver install command returned exit code ${proc.exitCode}. Refresh the list to verify.');
+    } catch (error) {
+      setState(() => _driverOutput = 'Driver installation failed: $error');
+    }
+  }
+
+  Future<void> _removeDriver() async {
+    final driver = _selectedDriver;
+    if (driver == null) return;
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Remove driver package?'),
+      content: Text('This removes $driver from the Windows driver store and may affect connected devices. Continue only if you recognize this package.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
+      ],
+    ));
+    if (confirmed != true) return;
+    try {
+      final script = "Start-Process -FilePath 'pnputil.exe' -ArgumentList @('/delete-driver', '$driver', '/uninstall') -Verb RunAs -Wait";
+      final proc = await Process.run('powershell.exe', ['-NoProfile','-Command',script]);
+      _writeLog('Driver removal command for $driver returned exit code ${proc.exitCode}.');
+      await _refreshDrivers();
+    } catch (error) {
+      setState(() => _driverOutput = 'Driver removal failed: $error');
+    }
+  }
+
+  Widget _driversPanel() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Card(child: Padding(padding: EdgeInsets.all(16), child: Text('Install USB/ADB drivers or manage published Windows driver packages. Driver changes require administrator approval. Removing the wrong package can affect other devices.', style: TextStyle(color: Colors.white70, height: 1.4)))),
+      const SizedBox(height: 12),
+      Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SizedBox(width: 230, child: Card(child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('Operation with Drivers', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 14),
+          FilledButton.icon(onPressed: _installDriver, icon: const Icon(Icons.download_rounded), label: const Text('Install INF')),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: _refreshDrivers, icon: const Icon(Icons.refresh_rounded), label: const Text('List installed')),
+          const SizedBox(height: 18),
+          const Text('Published driver package', style: TextStyle(color: Colors.white60, fontSize: 12)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(value: _selectedDriver, isExpanded: true, decoration: const InputDecoration(isDense: true), items: _driverPackages.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(), onChanged: (v) => setState(() => _selectedDriver = v)),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: _selectedDriver == null ? null : _removeDriver, icon: const Icon(Icons.delete_outline_rounded), label: const Text('Remove selected')),
+          const Spacer(),
+          OutlinedButton(onPressed: _refreshDrivers, child: const Text('Refresh list')),
+        ])))),
+        const SizedBox(width: 12),
+        Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [const Text('Log Output Window', style: TextStyle(fontWeight: FontWeight.w700)), const Spacer(), TextButton(onPressed: () => setState(() => _driverOutput = ''), child: const Text('Clear'))]),
+          Expanded(child: SingleChildScrollView(child: SelectableText(_driverOutput ?? 'Click “List installed” to inspect driver packages.', style: const TextStyle(fontFamily: 'Consolas', fontSize: 11, color: Colors.white70)))),
+        ])))),
+      ])),
+    ]);
   }
 
   Widget _platformToolsPanel() {
