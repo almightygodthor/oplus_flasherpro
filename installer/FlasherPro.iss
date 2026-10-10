@@ -1,5 +1,5 @@
 [Setup]
-AppId={{8D2A4B68-0B54-4D1C-9A11-F1A5E2B31000}
+AppId={{8D2A4B68-0B54-4D1C-9A11-F1A5E2B31000}}
 AppName=FlasherPro
 AppVersion=1.0.0
 AppPublisher=FlasherPro
