@@ -482,26 +482,33 @@ class _FlasherHomeState extends State<FlasherHome> {
               color: const Color(0xFF181A1F).withValues(alpha: 0.82),
               child: Padding(
                 padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.terminal_rounded, size: 38, color: Color(0xFFB8F36B)),
-                const SizedBox(height: 18),
-                const Text('Platform Tools Console', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                const Text('Launch Command Prompt to run adb, fastboot, and other Android platform-tools commands manually.', style: TextStyle(color: Colors.white60, height: 1.5)),
-                const SizedBox(height: 18),
-                _infoRow('Fastboot executable', directory == null ? 'Not detected' : p.join(directory, 'fastboot.exe')),
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _openPlatformTools,
-                  icon: const Icon(Icons.open_in_new_rounded),
-                  label: const Text('Open Platform Tools CMD'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.terminal_rounded, size: 38, color: Color(0xFFB8F36B)),
+                    const SizedBox(height: 18),
+                    const Text('Platform Tools Console', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Launch Command Prompt to run adb, fastboot, and other Android platform-tools commands manually.',
+                      style: TextStyle(color: Colors.white60, height: 1.5),
+                    ),
+                    const SizedBox(height: 18),
+                    _infoRow('Fastboot executable', directory == null ? 'Not detected' : p.join(directory, 'fastboot.exe')),
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _openPlatformTools,
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: const Text('Open Platform Tools CMD'),
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'If Platform Tools are not bundled, install them and add their folder to your system PATH.',
+                      style: TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                const Text('If Platform Tools are not bundled, install them and add their folder to your system PATH.', style: TextStyle(color: Colors.white38, fontSize: 12)),
-              ],
               ),
             ),
           ),
