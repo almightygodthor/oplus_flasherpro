@@ -1,0 +1,71 @@
+name: Windows Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Analyze source
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Windows application
+        run: flutter build windows --release
+
+      - name: Download Android Platform Tools
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Invoke-WebRequest -Uri "https://dl.google.com/android/repository/platform-tools-latest-windows.zip" -OutFile "$env:RUNNER_TEMP\platform-tools.zip"
+          Expand-Archive -Path "$env:RUNNER_TEMP\platform-tools.zip" -DestinationPath "$env:RUNNER_TEMP\platform-tools-extracted" -Force
+          $releaseDir = "build\windows\x64\runner\Release"
+          New-Item -ItemType Directory -Force -Path "$releaseDir\platform-tools" | Out-Null
+          Copy-Item "$env:RUNNER_TEMP\platform-tools-extracted\platform-tools\*" "$releaseDir\platform-tools" -Recurse -Force
+
+      - name: Package application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "FlasherPro-Windows-x64.zip" -Force
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlasherPro-Windows-x64
+          path: FlasherPro-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: FlasherPro-Windows-x64.zip
+          generate_release_notes: true
