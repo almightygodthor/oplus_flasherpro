@@ -27,6 +27,9 @@ jobs:
       - name: Enable Windows desktop
         run: flutter config --enable-windows-desktop
 
+      - name: Generate Windows runner files
+        run: flutter create --platforms=windows --project-name flasherpro .
+
       - name: Resolve dependencies
         run: flutter pub get
 
