@@ -60,7 +60,11 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          Compress-Archive -Path "build\windows\x64\runner\Release\*" -DestinationPath "FlasherPro-Windows-x64.zip" -Force
+          $releaseDir = "build\windows\x64\runner\Release"
+          if (Test-Path "$releaseDir\flasherpro.exe") {
+            Rename-Item "$releaseDir\flasherpro.exe" "FlasherPro.exe"
+          }
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath "FlasherPro-Windows-x64.zip" -Force
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
