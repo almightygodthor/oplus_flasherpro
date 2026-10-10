@@ -338,7 +338,14 @@ class _FlasherHomeState extends State<FlasherHome> {
                   children: [
                     Icon(Icons.bolt_rounded, color: Color(0xFFB8F36B), size: 30),
                     SizedBox(width: 10),
-                    Text('FLASHERPRO', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2)),
+                    Expanded(
+                      child: Text(
+                        'FLASHERPRO',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 1.2),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
