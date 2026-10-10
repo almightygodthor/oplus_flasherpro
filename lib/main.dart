@@ -132,7 +132,11 @@ class _FlasherHomeState extends State<FlasherHome> {
     }
     final directory = _platformToolsDirectory();
     if (directory == null) {
-      await Process.start('cmd.exe', ['/K', 'echo FlasherPro Platform Tools', '&', 'where fastboot'], runInShell: true);
+      await Process.start(
+        'cmd.exe',
+        ['/K', 'where fastboot'],
+        workingDirectory: Directory.current.path,
+      );
       _writeLog('Opened Command Prompt. Platform Tools were not found beside the application; install them or add them to PATH.');
       return;
     }
