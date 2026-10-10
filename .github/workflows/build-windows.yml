@@ -77,7 +77,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $iscc = "$env:ProgramFiles(x86)\Inno Setup 6\ISCC.exe"
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (!(Test-Path $iscc)) { throw "Inno Setup compiler not found at $iscc" }
           & $iscc "installer\FlasherPro.iss"
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
