@@ -97,6 +97,7 @@ class _FlasherHomeState extends State<FlasherHome> {
   final Set<String> _selectedImages = {};
   final List<String> _log = [];
   bool _busy = false;
+  bool _skipPreloaderRaw = true;
 
   String get _sectionTitle => switch (_section) {
         FlasherSection.platformTools => 'Platform Tools',
@@ -264,7 +265,13 @@ class _FlasherHomeState extends State<FlasherHome> {
   Future<void> _flashSelected() async {
     final selected = _images
         .where((file) => _selectedImages.contains(file.path))
+        .where((file) => !_skipPreloaderRaw || p.basenameWithoutExtension(file.path).toLowerCase() != 'preloader_raw')
         .toList();
+    final skippedPreloader = _skipPreloaderRaw && _images.any((file) =>
+        _selectedImages.contains(file.path) && p.basenameWithoutExtension(file.path).toLowerCase() == 'preloader_raw');
+    if (skippedPreloader) {
+      _writeLog('Safety option enabled: preloader_raw.img will be skipped.');
+    }
     if (selected.isEmpty) {
       _writeLog('Select at least one image before starting a flash.');
       return;
@@ -533,7 +540,7 @@ class _FlasherHomeState extends State<FlasherHome> {
                 const SizedBox(height: 20),
                 _pathRow('Selected archive', _firmwareArchive, 'Browse ZIP', _chooseFirmwareArchive),
                 const SizedBox(height: 12),
-                _pathRow('Output directory', _outputDirectory, 'Choose folder', _chooseOutputDirectory),
+                _pathRow('Destination Folder', _outputDirectory, 'Browse folder', _chooseOutputDirectory, leading: Icons.folder_outlined),
                 const SizedBox(height: 22),
                 FilledButton.icon(
                   onPressed: _busy ? null : _extractFirmware,
@@ -576,6 +583,27 @@ class _FlasherHomeState extends State<FlasherHome> {
                     const Spacer(),
                     Text('${_selectedImages.length}/${_images.length} selected', style: const TextStyle(color: Colors.white60, fontSize: 12)),
                   ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('FLASHING OPTIONS', style: TextStyle(color: Colors.white54, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text('Skip preloader_raw.img', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                  subtitle: const Text('On by default for every flash session', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  value: _skipPreloaderRaw,
+                  activeThumbColor: const Color(0xFFB8F36B),
+                  onChanged: _busy ? null : (value) => setState(() => _skipPreloaderRaw = value),
                 ),
               ],
             ),
@@ -668,7 +696,7 @@ class _FlasherHomeState extends State<FlasherHome> {
     );
   }
 
-  Widget _pathRow(String label, String? value, String action, VoidCallback onTap) {
+  Widget _pathRow(String label, String? value, String action, VoidCallback onTap, {IconData? leading}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -680,7 +708,10 @@ class _FlasherHomeState extends State<FlasherHome> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 decoration: BoxDecoration(color: const Color(0xFF111216), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF30333A))),
-                child: Text(value ?? 'Nothing selected', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: value == null ? Colors.white30 : Colors.white70, fontSize: 12)),
+                child: Row(children: [
+                  if (leading != null) ...[Icon(leading, size: 16, color: const Color(0xFFB8F36B)), const SizedBox(width: 8)],
+                  Expanded(child: Text(value ?? 'Choose destination folder', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: value == null ? Colors.white30 : Colors.white70, fontSize: 12))),
+                ]),
               ),
             ),
             const SizedBox(width: 10),
