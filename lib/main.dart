@@ -648,7 +648,15 @@ class _FlasherHomeState extends State<FlasherHome> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(width: 150, child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12))),
-          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
+          Expanded(
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              softWrap: true,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
         ],
       ),
     );
