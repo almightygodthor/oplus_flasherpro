@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' show ImageFilter;
 
 import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
@@ -131,22 +132,28 @@ class _FlasherHomeState extends State<FlasherHome> {
       return;
     }
     final directory = _platformToolsDirectory();
-    if (directory == null) {
+    final workingDirectory = directory ?? Directory.current.path;
+    try {
+      // Detach CMD from the GUI process so Windows opens a separate console
+      // window instead of inheriting Flutter's hidden GUI console.
       await Process.start(
-        'cmd.exe',
-        ['/K', 'where fastboot'],
-        workingDirectory: Directory.current.path,
+        Platform.environment['COMSPEC'] ?? r'C:\Windows\System32\cmd.exe',
+        ['/K', 'cd /d "$workingDirectory"'],
+        workingDirectory: workingDirectory,
+        mode: ProcessStartMode.detached,
+        runInShell: false,
       );
-      _writeLog('Opened Command Prompt. Platform Tools were not found beside the application; install them or add them to PATH.');
-      return;
+      _writeLog(directory == null
+          ? 'Opened Command Prompt. Platform Tools were not found beside the app; install them or add them to PATH.'
+          : 'Opened Command Prompt in $directory');
+    } catch (error) {
+      _writeLog('Could not open Command Prompt: $error');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open CMD. Check Windows security settings and try again.')),
+        );
+      }
     }
-    await Process.start(
-      'cmd.exe',
-      ['/K'],
-      workingDirectory: directory,
-      runInShell: true,
-    );
-    _writeLog('Opened Command Prompt in $directory');
   }
 
   Future<void> _chooseFirmwareArchive() async {
@@ -391,7 +398,28 @@ class _FlasherHomeState extends State<FlasherHome> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Expanded(child: _sectionContent()),
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 240),
+                      reverseDuration: const Duration(milliseconds: 180),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(0.012, 0),
+                            end: Offset.zero,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: KeyedSubtree(
+                        key: ValueKey(_section),
+                        child: _sectionContent(),
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 18),
                   _logPanel(),
                 ],
@@ -410,10 +438,12 @@ class _FlasherHomeState extends State<FlasherHome> {
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () => setState(() => _section = section),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 190),
+          curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
           decoration: BoxDecoration(
-            color: selected ? const Color(0xFF282C23) : Colors.transparent,
+            color: selected ? const Color(0xFF282C23).withValues(alpha: 0.88) : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: selected ? const Color(0xFF48543A) : Colors.transparent),
           ),
@@ -444,9 +474,14 @@ class _FlasherHomeState extends State<FlasherHome> {
       alignment: Alignment.topLeft,
       child: SizedBox(
         width: 680,
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Card(
+              color: const Color(0xFF181A1F).withValues(alpha: 0.82),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -467,6 +502,7 @@ class _FlasherHomeState extends State<FlasherHome> {
                 const SizedBox(height: 12),
                 const Text('If Platform Tools are not bundled, install them and add their folder to your system PATH.', style: TextStyle(color: Colors.white38, fontSize: 12)),
               ],
+              ),
             ),
           ),
         ),
