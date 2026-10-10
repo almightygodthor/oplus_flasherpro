@@ -81,7 +81,7 @@ class FlasherProApp extends StatelessWidget {
   }
 }
 
-enum FlasherSection { extraTools, logcat, drivers, platformTools, unpacker, flasher }
+enum FlasherSection { extraTools, logcat, drivers, platformTools, unpacker, flasher, settings }
 
 class FlasherHome extends StatefulWidget {
   const FlasherHome({super.key});
@@ -108,6 +108,9 @@ class _FlasherHomeState extends State<FlasherHome> {
   final List<String> _driverPackages = [];
   String? _selectedDriver;
   String? _driverOutput;
+  String _appTheme = 'Dark';
+  String _uiScale = '100%';
+  bool _aboutExpanded = true;
 
   String get _sectionTitle => switch (_section) {
         FlasherSection.extraTools => 'Extra Tools',
@@ -116,6 +119,7 @@ class _FlasherHomeState extends State<FlasherHome> {
         FlasherSection.platformTools => 'Platform Tools',
         FlasherSection.unpacker => 'Firmware Unpacker',
         FlasherSection.flasher => 'Firmware Flasher',
+        FlasherSection.settings => 'Settings',
       };
 
   void _writeLog(String message) {
@@ -390,6 +394,7 @@ class _FlasherHomeState extends State<FlasherHome> {
                 _navItem(FlasherSection.platformTools, Icons.terminal_rounded, 'Platform Tools'),
                 _navItem(FlasherSection.unpacker, Icons.inventory_2_outlined, 'Firmware Unpacker'),
                 _navItem(FlasherSection.flasher, Icons.memory_rounded, 'Firmware Flasher'),
+                _navItem(FlasherSection.settings, Icons.settings_outlined, 'Settings'),
                 const Spacer(),
                 const Divider(color: Color(0xFF303239)),
                 const Text('OPLUS DEVICE UTILITIES', style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1)),
@@ -420,6 +425,7 @@ class _FlasherHomeState extends State<FlasherHome> {
                                 FlasherSection.platformTools => 'Open a ready-to-use Fastboot command window.',
                                 FlasherSection.unpacker => 'Extract ZIP firmware packages to a folder you choose.',
                                 FlasherSection.flasher => 'Review image files and flash selected partitions.',
+                                FlasherSection.settings => 'Personalize FlasherPro and view creator information.',
                               },
                               style: const TextStyle(color: Colors.white54),
                             ),
@@ -509,6 +515,7 @@ class _FlasherHomeState extends State<FlasherHome> {
       FlasherSection.platformTools => _platformToolsPanel(),
       FlasherSection.unpacker => _unpackerPanel(),
       FlasherSection.flasher => _flasherPanel(),
+      FlasherSection.settings => _settingsPanel(),
     };
   }
 
@@ -702,6 +709,123 @@ class _FlasherHomeState extends State<FlasherHome> {
         ])))),
       ])),
     ]);
+  }
+
+
+  Widget _settingsPanel() {
+    return SingleChildScrollView(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Personalization', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        _settingsRow(Icons.palette_outlined, 'App theme', 'Select which app theme to display',
+          DropdownButton<String>(
+            value: _appTheme, underline: const SizedBox.shrink(),
+            items: const ['Dark', 'System'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+            onChanged: (v) => setState(() => _appTheme = v ?? 'Dark'),
+          )),
+        const SizedBox(height: 8),
+        _settingsRow(Icons.zoom_in_rounded, 'UI Scale', 'Adjust interface size for your display',
+          DropdownButton<String>(
+            value: _uiScale, underline: const SizedBox.shrink(),
+            items: const ['90%', '100%', '110%', '125%'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+            onChanged: (v) => setState(() => _uiScale = v ?? '100%'),
+          )),
+        const SizedBox(height: 26),
+        const Text('About this tool', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xAA252830),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: .08)),
+              ),
+              child: Column(children: [
+                ListTile(
+                  leading: const Icon(Icons.bolt_rounded, color: Color(0xFFB8F36B), size: 30),
+                  title: const Text('FlasherPro', style: TextStyle(fontWeight: FontWeight.w700)),
+                  subtitle: const Text('Version 1.0.0'),
+                  trailing: IconButton(
+                    tooltip: _aboutExpanded ? 'Collapse' : 'Expand',
+                    onPressed: () => setState(() => _aboutExpanded = !_aboutExpanded),
+                    icon: AnimatedRotation(turns: _aboutExpanded ? .5 : 0, duration: const Duration(milliseconds: 260), child: const Icon(Icons.expand_more_rounded)),
+                  ),
+                ),
+                AnimatedCrossFade(
+                  duration: const Duration(milliseconds: 320),
+                  sizeCurve: Curves.easeOutQuart,
+                  crossFadeState: _aboutExpanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+                  firstChild: Column(children: [
+                    const Divider(height: 1, color: Color(0x223FFFFFF)),
+                    _creditRow(Icons.person_rounded, 'Created by', 'almightygodthor', 'https://github.com/almightygodthor'),
+                    const Divider(height: 1, color: Color(0x223FFFFFF)),
+                    _creditRow(Icons.telegram, 'Community & Support', 'Realme GT Neo 3 Discussion', 'https://t.me/RealmeGTNeo3discussion'),
+                    const Divider(height: 1, color: Color(0x223FFFFFF)),
+                    _creditRow(Icons.code_rounded, 'Source code', 'FlasherPro on GitHub', 'https://github.com/almightygodthor/oplus_flasherpro'),
+                  ]),
+                  secondChild: const SizedBox(width: double.infinity),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _settingsRow(IconData icon, String title, String subtitle, Widget control) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xAA252830),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: .06)),
+      ),
+      child: Row(children: [
+        Icon(icon, color: Colors.white70, size: 22),
+        const SizedBox(width: 16),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(subtitle, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+        ])),
+        SizedBox(width: 150, child: Align(alignment: Alignment.centerRight, child: control)),
+      ]),
+    );
+  }
+
+  Widget _creditRow(IconData icon, String title, String subtitle, String url) {
+    return InkWell(
+      onTap: () async {
+        try {
+          if (Platform.isWindows) {
+            await Process.start('rundll32.exe', ['url.dll,FileProtocolHandler', url], mode: ProcessStartMode.detached);
+          } else if (Platform.isMacOS) {
+            await Process.start('open', [url], mode: ProcessStartMode.detached);
+          } else if (Platform.isLinux) {
+            await Process.start('xdg-open', [url], mode: ProcessStartMode.detached);
+          }
+        } catch (error) {
+          _writeLog('Could not open link: $error');
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        child: Row(children: [
+          Container(width: 34, height: 34, decoration: BoxDecoration(color: const Color(0xFF8D75FF).withValues(alpha: .15), shape: BoxShape.circle), child: Icon(icon, size: 18, color: const Color(0xFF9C8AFF))),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(subtitle, style: const TextStyle(color: Colors.white60, fontSize: 12)),
+          ])),
+          const Icon(Icons.open_in_new_rounded, size: 16, color: Colors.white60),
+          const SizedBox(width: 10),
+          const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white60),
+        ]),
+      ),
+    );
   }
 
   Widget _platformToolsPanel() {
