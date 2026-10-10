@@ -92,7 +92,6 @@ class _FlasherHomeState extends State<FlasherHome> {
   FlasherSection _section = FlasherSection.platformTools;
   String? _firmwareArchive;
   String? _outputDirectory;
-  String? _flashDirectory;
   final List<File> _images = [];
   final Set<String> _selectedImages = {};
   final List<String> _log = [];
@@ -228,7 +227,6 @@ class _FlasherHomeState extends State<FlasherHome> {
       _selectedImages
         ..clear()
         ..addAll(files.map((file) => file.path));
-      _flashDirectory = files.isEmpty ? null : p.dirname(files.first.path);
     });
     _writeLog('Loaded ${files.length} image file(s) for review.');
   }
