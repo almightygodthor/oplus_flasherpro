@@ -108,6 +108,10 @@ class _FlasherProAppState extends State<FlasherProApp> with WidgetsBindingObserv
   }
 }
 
+class _UnpackCancelled implements Exception {
+  const _UnpackCancelled();
+}
+
 enum FlasherSection { extraTools, logcat, drivers, unpacker, flasher, settings }
 
 class FlasherHome extends StatefulWidget {
@@ -146,6 +150,8 @@ class _FlasherHomeState extends State<FlasherHome> {
   final Set<String> _selectedImages = {};
   final List<String> _log = [];
   bool _busy = false;
+  bool _cancelUnpack = false;
+  Process? _payloadProcess;
   bool _skipPreloaderRaw = true;
   Process? _logcatProcess;
   bool _logcatRunning = false;
@@ -311,6 +317,13 @@ class _FlasherHomeState extends State<FlasherHome> {
     _writeLog('Selected archive: ${p.basename(_firmwareArchive!)}');
   }
 
+  Future<void> _stopUnpack() async {
+    if (!_busy) return;
+    setState(() { _cancelUnpack = true; _unpackStatus = 'Stopping and cleaning temporary files…'; });
+    _payloadProcess?.kill(ProcessSignal.sigterm);
+    _writeLog('Stop requested; cleaning temporary payload and partial output.');
+  }
+
   Future<void> _extractFirmware() async {
     final archivePath = _firmwareArchive;
     if (archivePath == null) {
@@ -329,7 +342,7 @@ class _FlasherHomeState extends State<FlasherHome> {
       return;
     }
 
-    setState(() { _busy = true; _unpackProgress = 0; _unpackStatus = 'Preparing temporary workspace…'; });
+    setState(() { _busy = true; _cancelUnpack = false; _unpackProgress = 0; _unpackStatus = 'Preparing temporary workspace…'; });
     Directory? tempRoot;
     var succeeded = false;
     try {
@@ -351,6 +364,7 @@ class _FlasherHomeState extends State<FlasherHome> {
       var processed = 0;
       final payloadFiles = <File>[];
       for (final entry in archive) {
+        if (_cancelUnpack) throw const _UnpackCancelled();
         final target = p.normalize(p.join(zipWorkspace.path, entry.name));
         if (!p.isWithin(zipWorkspace.path, target)) {
           _writeLog('Skipped unsafe ZIP entry: ${entry.name}');
@@ -393,6 +407,7 @@ class _FlasherHomeState extends State<FlasherHome> {
         },
         runInShell: false,
       );
+      _payloadProcess = process;
       final outputLines = <String>[];
           process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
         outputLines.add(line);
@@ -413,6 +428,8 @@ class _FlasherHomeState extends State<FlasherHome> {
         _writeLog('payload-dumper-go: $line');
       });
       final exitCode = await process.exitCode;
+      _payloadProcess = null;
+      if (_cancelUnpack) throw const _UnpackCancelled();
       if (exitCode != 0) {
         throw ProcessException(dumper, args, 'payload-dumper-go exited with code $exitCode. ${outputLines.take(10).join(' | ')}', exitCode);
       }
@@ -447,6 +464,11 @@ class _FlasherHomeState extends State<FlasherHome> {
       _writeLog('Unpack complete: ${images.length} images saved to ${destination.path}');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Unpacked ${images.length} images into "$safeName".')));
+    } on _UnpackCancelled {
+      _writeLog('Unpack cancelled; temporary files and partial output removed.');
+      _images.clear();
+      _selectedImages.clear();
+      if (mounted) setState(() { _unpackProgress = 0; _unpackStatus = 'Cancelled — temporary data removed'; });
     } catch (error) {
       _writeLog('Firmware unpack failed: $error');
       if (mounted) {
@@ -454,6 +476,7 @@ class _FlasherHomeState extends State<FlasherHome> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unpack failed: $error')));
       }
     } finally {
+      _payloadProcess = null;
       if (tempRoot != null && await tempRoot.exists()) {
         try { await tempRoot.delete(recursive: true); }
         catch (error) { _writeLog('Temporary cleanup warning: $error'); }
