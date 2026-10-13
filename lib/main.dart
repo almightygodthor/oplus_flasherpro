@@ -62,7 +62,7 @@ class _FlasherProAppState extends State<FlasherProApp> with WidgetsBindingObserv
         : (_appTheme == 'Light' ? Brightness.light : Brightness.dark);
     final dark = brightness == Brightness.dark;
     final scale = (double.tryParse(_uiScale.replaceAll('%', '')) ?? 100) / 100;
-    final density = (scale - 1).clamp(-1.0, 1.0);
+    final density = (scale - 1).clamp(-1.0, 1.0).toDouble();
     final theme = ThemeData(
       useMaterial3: true,
       brightness: brightness,
