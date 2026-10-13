@@ -673,18 +673,20 @@ class _FlasherHomeState extends State<FlasherHome> {
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(color: Color(0xFF101114)))),
-          Positioned(top: -180, left: 180, child: _ambientGlow(const Color(0xFF386BFF), 420)),
-          Positioned(top: -130, right: 80, child: _ambientGlow(const Color(0xFFFF476F), 360)),
-          Positioned(bottom: -230, right: 240, child: _ambientGlow(const Color(0xFF8A4DFF), 460)),
+          Positioned.fill(child: DecoratedBox(decoration: BoxDecoration(color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF101114) : const Color(0xFFF4F6F8)))),
+          if (Theme.of(context).brightness == Brightness.dark) ...[
+            Positioned(top: -180, left: 180, child: _ambientGlow(const Color(0xFF386BFF), 420)),
+            Positioned(top: -130, right: 80, child: _ambientGlow(const Color(0xFFFF476F), 360)),
+            Positioned(bottom: -230, right: 240, child: _ambientGlow(const Color(0xFF8A4DFF), 460)),
+          ],
           Row(
         children: [
           Container(
             width: 235,
             padding: const EdgeInsets.fromLTRB(18, 24, 14, 18),
             decoration: BoxDecoration(
-              color: const Color(0xB815161A),
-              border: const Border(right: BorderSide(color: Color(0x553C414D))),
+              color: Theme.of(context).brightness == Brightness.dark ? const Color(0xB815161A) : const Color(0xFFFDFDFE),
+              border: Border(right: BorderSide(color: Theme.of(context).brightness == Brightness.dark ? const Color(0x553C414D) : const Color(0xFFDCE1E7))),
               boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 28, offset: Offset(8, 0))],
             ),
             child: Column(
@@ -743,7 +745,7 @@ class _FlasherHomeState extends State<FlasherHome> {
                                 FlasherSection.flasher => 'Review image files and flash selected partitions.',
                                 FlasherSection.settings => 'Personalize FlasherPro and view creator information.',
                               },
-                              style: const TextStyle(color: Colors.white54),
+                              style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: .65)),
                             ),
                           ],
                         ),
