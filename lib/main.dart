@@ -103,6 +103,19 @@ class FlasherHome extends StatefulWidget {
 }
 
 class _FlasherHomeState extends State<FlasherHome> {
+  @override
+  void initState() {
+    super.initState();
+    _refreshSavedFirmwares();
+  }
+
+  @override
+  void dispose() {
+    _firmwareNameController.dispose();
+    _logcatProcess?.kill();
+    super.dispose();
+  }
+
   FlasherSection _section = FlasherSection.extraTools;
   String? _firmwareArchive;
   final TextEditingController _firmwareNameController = TextEditingController();
@@ -354,14 +367,12 @@ class _FlasherHomeState extends State<FlasherHome> {
       final args = ['-o', rawOutput.path, payload.path];
       final process = await Process.start(dumper, args, workingDirectory: p.dirname(dumper), runInShell: false);
       final outputLines = <String>[];
-      var lastPercent = -1;
-      process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
+          process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
         outputLines.add(line);
         _writeLog(line);
         final match = RegExp(r'(\d{1,3})\s*%').firstMatch(line);
         if (match != null) {
           final percent = (int.tryParse(match.group(1)!) ?? 0).clamp(0, 100);
-          lastPercent = percent;
           if (mounted) setState(() {
             _unpackProgress = 0.1 + percent / 100 * 0.85;
             _unpackStatus = 'Payload extraction: $percent%';
@@ -1078,7 +1089,7 @@ class _FlasherHomeState extends State<FlasherHome> {
           Row(children: [
             Expanded(child: FilledButton.icon(onPressed: _busy ? null : _extractFirmware, icon: const Icon(Icons.inventory_2_outlined), label: Text(_busy ? 'Unpacking…' : 'Unpack firmware'))),
             const SizedBox(width: 10),
-            OutlinedButton.icon(onPressed: _busy ? null : () async { final root = await _firmwareLibraryDirectory(); await _openDirectory(root.path); }, icon: const Icon(Icons.folder_open_rounded), label: const Text('Open Destination Folder')),
+            OutlinedButton.icon(onPressed: _busy ? null : () async { final root = await _firmwareLibraryDirectory(); await _openDirectory(_activeFirmwareDirectory ?? root.path); }, icon: const Icon(Icons.folder_open_rounded), label: const Text('Open Destination Folder')),
           ]),
           const SizedBox(height: 18),
           Row(children: [
