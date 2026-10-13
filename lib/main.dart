@@ -41,7 +41,7 @@ class _FlasherProAppState extends State<FlasherProApp> {
   Widget build(BuildContext context) {
     const accent = Color(0xFFB8F36B);
     final brightness = _appTheme == 'System'
-        ? MediaQuery.platformBrightnessOf(context)
+        ? WidgetsBinding.instance.platformDispatcher.platformBrightness
         : (_appTheme == 'Light' ? Brightness.light : Brightness.dark);
     final dark = brightness == Brightness.dark;
     final theme = ThemeData(
@@ -252,8 +252,8 @@ class _FlasherHomeState extends State<FlasherHome> {
         Platform.environment['COMSPEC'] ?? r'C:\Windows\System32\cmd.exe',
         ['/c', 'start', '"FlasherPro Platform Tools"', 'cmd.exe', '/K', 'cd /d "$workingDirectory"'],
         workingDirectory: workingDirectory,
-        mode: ProcessStartMode.normal,
-        runInShell: true,
+        mode: ProcessStartMode.detached,
+        runInShell: false,
       );
       _writeLog(directory == null
           ? 'Opened Command Prompt. Platform Tools were not found beside the app; commands require tools on PATH.'
@@ -358,7 +358,7 @@ class _FlasherHomeState extends State<FlasherHome> {
       process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
         outputLines.add(line);
         _writeLog(line);
-        final match = RegExp(r'(\\d{1,3})\\s*%').firstMatch(line);
+        final match = RegExp(r'(\d{1,3})\s*%').firstMatch(line);
         if (match != null) {
           final percent = (int.tryParse(match.group(1)!) ?? 0).clamp(0, 100);
           lastPercent = percent;
