@@ -27,56 +27,64 @@ Future<void> main() async {
   runApp(const FlasherProApp());
 }
 
-class FlasherProApp extends StatelessWidget {
+class FlasherProApp extends StatefulWidget {
   const FlasherProApp({super.key});
+  @override
+  State<FlasherProApp> createState() => _FlasherProAppState();
+}
+
+class _FlasherProAppState extends State<FlasherProApp> {
+  String _appTheme = 'Dark';
+  String _uiScale = '100%';
 
   @override
   Widget build(BuildContext context) {
     const accent = Color(0xFFB8F36B);
+    final brightness = _appTheme == 'System'
+        ? MediaQuery.platformBrightnessOf(context)
+        : (_appTheme == 'Light' ? Brightness.light : Brightness.dark);
+    final dark = brightness == Brightness.dark;
+    final theme = ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+      scaffoldBackgroundColor: dark ? const Color(0xFF101114) : const Color(0xFFF4F6F8),
+      colorScheme: ColorScheme.fromSeed(seedColor: accent, brightness: brightness,
+        surface: dark ? const Color(0xFF181A1F) : Colors.white),
+      cardTheme: CardThemeData(
+        color: dark ? const Color(0xCC20232B) : Colors.white,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: dark ? const Color(0xFF2A2D34) : const Color(0xFFDCE1E7)),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: dark ? const Color(0xFF111216) : const Color(0xFFF0F2F5),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: dark ? const Color(0xFF30333A) : const Color(0xFFD0D6DE))),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(backgroundColor: accent, foregroundColor: const Color(0xFF101114),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+      ),
+    );
+    final scale = (double.tryParse(_uiScale.replaceAll('%', '')) ?? 100) / 100;
     return MaterialApp(
       title: 'FlasherPro',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF101114),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: accent,
-          brightness: Brightness.dark,
-          surface: const Color(0xFF181A1F),
-        ),
-        cardTheme: CardThemeData(
-          color: const Color(0xCC20232B),
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: Color(0xFF2A2D34)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF111216),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFF30333A)),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFF30333A)),
-          ),
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: accent,
-            foregroundColor: const Color(0xFF101114),
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
+      theme: theme,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+        child: child ?? const SizedBox.shrink(),
       ),
-      home: const FlasherHome(),
+      home: FlasherHome(
+        appTheme: _appTheme, uiScale: _uiScale,
+        onThemeChanged: (value) => setState(() => _appTheme = value),
+        onScaleChanged: (value) => setState(() => _uiScale = value),
+      ),
     );
   }
 }
