@@ -239,8 +239,8 @@ class _FlasherHomeState extends State<FlasherHome> {
         .where((entity) => entity is Directory && !p.basename(entity.path).startsWith('.'))
         .cast<Directory>().toList();
     entries.sort((a, b) => p.basename(a.path).toLowerCase().compareTo(p.basename(b.path).toLowerCase()));
-    if (mounted) setState(() {
-      => _savedFirmwares = entries);
+    if (mounted) {
+      setState(() => _savedFirmwares = entries);
     }
   }
 
@@ -448,10 +448,12 @@ class _FlasherHomeState extends State<FlasherHome> {
         final match = RegExp(r'(\d{1,3})\s*%').firstMatch(line);
         if (match != null) {
           final percent = (int.tryParse(match.group(1)!) ?? 0).clamp(0, 100);
-          if (mounted) setState(() {
-            _unpackProgress = 0.1 + percent / 100 * 0.85;
-            _unpackStatus = 'Payload extraction: $percent%';
-          });
+          if (mounted) {
+            setState(() {
+              _unpackProgress = 0.1 + percent / 100 * 0.85;
+              _unpackStatus = 'Payload extraction: $percent%';
+            });
+          }
         } else if (mounted) {
           setState(() {
             _unpackStatus = line.length > 72 ? '${line.substring(0, 69)}…' : line;
@@ -494,11 +496,13 @@ class _FlasherHomeState extends State<FlasherHome> {
         'Total images: ${images.length}\n'
         'Bootloader: ${counts['bootloader']}\nCritical: ${counts['critical']}\nSystem: ${counts['system']}\n');
       succeeded = true;
-      if (mounted) setState(() {
-        _activeFirmwareDirectory = destination.path;
-        _unpackProgress = 1;
-        _unpackStatus = 'Complete — ${images.length} images unpacked';
-      });
+      if (mounted) {
+        setState(() {
+          _activeFirmwareDirectory = destination.path;
+          _unpackProgress = 1;
+          _unpackStatus = 'Complete — ${images.length} images unpacked';
+        });
+      }
       await _refreshSavedFirmwares();
       _writeLog('Unpack complete: ${images.length} images saved to ${destination.path}');
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -526,8 +530,8 @@ class _FlasherHomeState extends State<FlasherHome> {
         try { await destination.delete(recursive: true); }
         catch (error) { _writeLog('Failed-output cleanup warning: $error'); }
       }
-      if (mounted) setState(() {
-        => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
       }
     }
   }
@@ -653,8 +657,8 @@ class _FlasherHomeState extends State<FlasherHome> {
     } catch (error) {
       _writeLog('Fastboot operation failed: $error');
     } finally {
-      if (mounted) setState(() {
-        => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
       }
     }
   }
@@ -909,8 +913,8 @@ class _FlasherHomeState extends State<FlasherHome> {
   Future<void> _stopLogcat() async {
     _logcatProcess?.kill();
     _logcatProcess = null;
-    if (mounted) setState(() {
-      => _logcatRunning = false);
+    if (mounted) {
+      setState(() => _logcatRunning = false);
     }
   }
 
