@@ -410,10 +410,12 @@ class _FlasherHomeState extends State<FlasherHome> {
           await Directory(target).create(recursive: true);
         }
         processed++;
-        if (mounted) setState(() {
-          _unpackProgress = archive.isEmpty ? 0.08 : 0.08 * processed / archive.length;
-          _unpackStatus = 'Extracting ZIP: $processed/${archive.length} entries';
-        });
+        if (mounted) {
+          setState(() {
+            _unpackProgress = archive.isEmpty ? 0.08 : 0.08 * processed / archive.length;
+            _unpackStatus = 'Extracting ZIP: $processed/${archive.length} entries';
+          });
+        }
       }
 
       final dumper = _payloadDumperExecutable();
@@ -505,8 +507,11 @@ class _FlasherHomeState extends State<FlasherHome> {
       }
       await _refreshSavedFirmwares();
       _writeLog('Unpack complete: ${images.length} images saved to ${destination.path}');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Unpacked ${images.length} images into "$safeName".')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unpacked ${images.length} images into "$safeName".')),
+        );
+      }
     } on _UnpackCancelled {
       _writeLog('Unpack cancelled; temporary files and partial output removed.');
       _images.clear();
@@ -902,8 +907,17 @@ class _FlasherHomeState extends State<FlasherHome> {
           }
         });
       });
-      process.stderr.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) { if (mounted) _writeLog('adb: $line'); });
-      process.exitCode.then((code) { if (mounted) setState(() => _logcatRunning = false); _writeLog('Logcat stopped (exit $code).'); });
+      process.stderr.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
+        if (mounted) {
+          _writeLog('adb: $line');
+        }
+      });
+      process.exitCode.then((code) {
+        if (mounted) {
+          setState(() => _logcatRunning = false);
+        }
+        _writeLog('Logcat stopped (exit $code).');
+      });
     } catch (error) {
       setState(() => _logcatRunning = false);
       _writeLog('Could not start Logcat: $error');
