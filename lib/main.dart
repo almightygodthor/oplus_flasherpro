@@ -312,7 +312,9 @@ class _FlasherHomeState extends State<FlasherHome> {
       allowedExtensions: ['zip'],
       dialogTitle: 'Select a firmware ZIP archive',
     );
-    if (result == null || result.files.single.path == null) return;
+    if (result == null || result.files.single.path == null) {
+      return;
+    }
     setState(() => _firmwareArchive = result.files.single.path);
     _writeLog('Selected archive: ${p.basename(_firmwareArchive!)}');
   }
@@ -337,8 +339,11 @@ class _FlasherHomeState extends State<FlasherHome> {
     final destination = Directory(p.join(library.path, safeName));
     if (await destination.exists()) {
       _writeLog('Firmware folder "$safeName" already exists; use a different name or delete it first.');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('That firmware folder already exists. Choose another name.')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('That firmware folder already exists. Choose another name.')),
+        );
+      }
       return;
     }
 
@@ -421,7 +426,9 @@ class _FlasherHomeState extends State<FlasherHome> {
             _unpackStatus = 'Payload extraction: $percent%';
           });
         } else if (mounted) {
-          setState(() => _unpackStatus = line.length > 72 ? '${line.substring(0, 69)}…' : line);
+          setState(() {
+            _unpackStatus = line.length > 72 ? '${line.substring(0, 69)}…' : line;
+          });
         }
       });
       process.stderr.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
@@ -675,7 +682,6 @@ class _FlasherHomeState extends State<FlasherHome> {
                                 FlasherSection.logcat => 'Stream, filter, and save Android device logs.',
                                 FlasherSection.drivers => 'Install USB drivers and manage Windows driver packages.',
                                 FlasherSection.unpacker => 'Extract payload images and manage saved firmware.',
-                                FlasherSection.unpacker => 'Extract ZIP firmware packages to a folder you choose.',
                                 FlasherSection.flasher => 'Review image files and flash selected partitions.',
                                 FlasherSection.settings => 'Personalize FlasherPro and view creator information.',
                               },
@@ -1075,55 +1081,6 @@ class _FlasherHomeState extends State<FlasherHome> {
           const SizedBox(width: 10),
           const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.white60),
         ]),
-      ),
-    );
-  }
-
-  Widget _platformToolsPanel() {
-    final directory = _platformToolsDirectory();
-    return Align(
-      alignment: Alignment.topLeft,
-      child: SizedBox(
-        width: 680,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Card(
-              color: const Color(0xFF181A1F).withValues(alpha: 0.82),
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.terminal_rounded, size: 38, color: Color(0xFFB8F36B)),
-                    const SizedBox(height: 18),
-                    const Text('Platform Tools Console', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Launch Command Prompt to run adb, fastboot, and other Android platform-tools commands manually.',
-                      style: TextStyle(color: Colors.white60, height: 1.5),
-                    ),
-                    const SizedBox(height: 18),
-                    _infoRow('Fastboot executable', directory == null ? 'Not detected' : p.join(directory, 'fastboot.exe')),
-                    const SizedBox(height: 18),
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _openPlatformTools,
-                      icon: const Icon(Icons.open_in_new_rounded),
-                      label: const Text('Open Platform Tools CMD'),
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'If Platform Tools are not bundled, install them and add their folder to your system PATH.',
-                      style: TextStyle(color: Colors.white38, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
