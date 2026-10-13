@@ -57,6 +57,20 @@ jobs:
           New-Item -ItemType Directory -Force -Path "$releaseDir\platform-tools" | Out-Null
           Copy-Item "$env:RUNNER_TEMP\platform-tools-extracted\platform-tools\*" "$releaseDir\platform-tools" -Recurse -Force
 
+      - name: Bundle payload-dumper-go
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = "$env:RUNNER_TEMP\payload-dumper-go.tar.gz"
+          $extractDir = "$env:RUNNER_TEMP\payload-dumper-go"
+          Invoke-WebRequest -Uri "https://github.com/ssut/payload-dumper-go/releases/download/2.1.0/payload-dumper-go_2.1.0_windows_amd64.tar.gz" -OutFile $archive
+          New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
+          tar -xzf $archive -C $extractDir
+          $dumper = Get-ChildItem -Path $extractDir -Recurse -Filter "payload-dumper-go.exe" | Select-Object -First 1
+          if ($null -eq $dumper) { throw "payload-dumper-go.exe was not found in the official release archive." }
+          $releaseDir = "build\windows\x64\runner\Release"
+          Copy-Item $dumper.FullName "$releaseDir\payload-dumper-go.exe" -Force
+
       - name: Prepare bundled application
         shell: pwsh
         run: |
