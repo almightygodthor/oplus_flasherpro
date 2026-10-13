@@ -250,14 +250,14 @@ class _FlasherHomeState extends State<FlasherHome> {
       // window instead of inheriting Flutter's hidden GUI console.
       await Process.start(
         Platform.environment['COMSPEC'] ?? r'C:\Windows\System32\cmd.exe',
-        ['/K', 'cd /d "$workingDirectory"'],
+        ['/c', 'start', '"FlasherPro Platform Tools"', 'cmd.exe', '/K', 'cd /d "$workingDirectory"'],
         workingDirectory: workingDirectory,
-        mode: ProcessStartMode.detached,
-        runInShell: false,
+        mode: ProcessStartMode.normal,
+        runInShell: true,
       );
       _writeLog(directory == null
-          ? 'Opened Command Prompt. Platform Tools were not found beside the app; install them or add them to PATH.'
-          : 'Opened Command Prompt in $directory');
+          ? 'Opened Command Prompt. Platform Tools were not found beside the app; commands require tools on PATH.'
+          : 'Opened Platform Tools CMD in $directory');
     } catch (error) {
       _writeLog('Could not open Command Prompt: $error');
       if (mounted) {
