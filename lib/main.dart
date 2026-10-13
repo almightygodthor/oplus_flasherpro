@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
@@ -174,17 +173,23 @@ class _FlasherHomeState extends State<FlasherHome> {
       };
 
   void _writeLog(String message) {
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() {
       _log.insert(0, '[${DateTime.now().toLocal().toString().substring(11, 19)}] $message');
-      if (_log.length > 120) _log.removeLast();
+      if (_log.length > 120) {
+        _log.removeLast();
+      }
     });
   }
 
   String _safeFolderName(String input) {
     final cleaned = input.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '_')
         .trim().replaceAll(RegExp(r'[. ]+$'), '');
-    if (cleaned.isEmpty) return 'Firmware_${DateTime.now().millisecondsSinceEpoch}';
+    if (cleaned.isEmpty) {
+      return 'Firmware_${DateTime.now().millisecondsSinceEpoch}';
+    }
     return cleaned.substring(0, cleaned.length > 80 ? 80 : cleaned.length);
   }
 
@@ -217,8 +222,12 @@ class _FlasherHomeState extends State<FlasherHome> {
       'dtbo', 'super', 'metadata', 'misc', 'persist', 'para', 'expdb', 'frp',
       'nvram', 'nvdata', 'protect1', 'protect2'];
     final stem = p.basenameWithoutExtension(name).toLowerCase().replaceAll(RegExp(r'_[ab]$'), '');
-    if (bootloader.any((part) => stem == part || stem.startsWith('${part}_'))) return 'bootloader';
-    if (critical.any((part) => stem == part || stem.startsWith('${part}_'))) return 'critical';
+    if (bootloader.any((part) => stem == part || stem.startsWith('${part}_'))) {
+      return 'bootloader';
+    }
+    if (critical.any((part) => stem == part || stem.startsWith('${part}_'))) {
+      return 'critical';
+    }
     return 'system';
   }
 
@@ -228,7 +237,9 @@ class _FlasherHomeState extends State<FlasherHome> {
         .where((entity) => entity is Directory && !p.basename(entity.path).startsWith('.'))
         .cast<Directory>().toList();
     entries.sort((a, b) => p.basename(a.path).toLowerCase().compareTo(p.basename(b.path).toLowerCase()));
-    if (mounted) setState(() => _savedFirmwares = entries);
+    if (mounted) setState(() {
+      => _savedFirmwares = entries);
+    }
   }
 
   Future<void> _openDirectory(String path) async {
@@ -253,10 +264,14 @@ class _FlasherHomeState extends State<FlasherHome> {
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
       ],
     ));
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
     try {
       await firmware.delete(recursive: true);
-      if (_activeFirmwareDirectory == firmware.path) _activeFirmwareDirectory = null;
+      if (_activeFirmwareDirectory == firmware.path) {
+        _activeFirmwareDirectory = null;
+      }
       await _refreshSavedFirmwares();
       _writeLog('Deleted unpacked firmware: $name');
     } catch (error) { _writeLog('Could not delete $name: $error'); }
@@ -320,7 +335,9 @@ class _FlasherHomeState extends State<FlasherHome> {
   }
 
   Future<void> _stopUnpack() async {
-    if (!_busy) return;
+    if (!_busy) {
+      return;
+    }
     setState(() { _cancelUnpack = true; _unpackStatus = 'Stopping and cleaning temporary files…'; });
     _payloadProcess?.kill(ProcessSignal.sigterm);
     _writeLog('Stop requested; cleaning temporary payload and partial output.');
@@ -369,7 +386,9 @@ class _FlasherHomeState extends State<FlasherHome> {
       var processed = 0;
       final payloadFiles = <File>[];
       for (final entry in archive) {
-        if (_cancelUnpack) throw const _UnpackCancelled();
+        if (_cancelUnpack) {
+          throw const _UnpackCancelled();
+        }
         final target = p.normalize(p.join(zipWorkspace.path, entry.name));
         if (!p.isWithin(zipWorkspace.path, target)) {
           _writeLog('Skipped unsafe ZIP entry: ${entry.name}');
@@ -381,7 +400,9 @@ class _FlasherHomeState extends State<FlasherHome> {
           final data = entry.readBytes();
           if (data != null) {
             await file.writeAsBytes(data, flush: false);
-            if (p.basename(entry.name).toLowerCase() == 'payload.bin') payloadFiles.add(file);
+            if (p.basename(entry.name).toLowerCase() == 'payload.bin') {
+              payloadFiles.add(file);
+            }
           }
         } else {
           await Directory(target).create(recursive: true);
@@ -413,7 +434,9 @@ class _FlasherHomeState extends State<FlasherHome> {
         runInShell: false,
       );
       _payloadProcess = process;
-      if (_cancelUnpack) process.kill(ProcessSignal.sigterm);
+      if (_cancelUnpack) {
+        process.kill(ProcessSignal.sigterm);
+      }
       final outputLines = <String>[];
           process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
         outputLines.add(line);
@@ -437,14 +460,18 @@ class _FlasherHomeState extends State<FlasherHome> {
       });
       final exitCode = await process.exitCode;
       _payloadProcess = null;
-      if (_cancelUnpack) throw const _UnpackCancelled();
+      if (_cancelUnpack) {
+        throw const _UnpackCancelled();
+      }
       if (exitCode != 0) {
         throw ProcessException(dumper, args, 'payload-dumper-go exited with code $exitCode. ${outputLines.take(10).join(' | ')}', exitCode);
       }
       final images = await rawOutput.list(recursive: true, followLinks: false)
           .where((entity) => entity is File && p.extension(entity.path).toLowerCase() == '.img')
           .cast<File>().toList();
-      if (images.isEmpty) throw const FormatException('payload-dumper-go finished but no .img images were created.');
+      if (images.isEmpty) {
+        throw const FormatException('payload-dumper-go finished but no .img images were created.');
+      }
 
       final counts = <String, int>{'bootloader': 0, 'critical': 0, 'system': 0};
       for (final section in counts.keys) {
@@ -493,7 +520,9 @@ class _FlasherHomeState extends State<FlasherHome> {
         try { await destination.delete(recursive: true); }
         catch (error) { _writeLog('Failed-output cleanup warning: $error'); }
       }
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() {
+        => _busy = false);
+      }
     }
   }
 
@@ -504,7 +533,9 @@ class _FlasherHomeState extends State<FlasherHome> {
       allowMultiple: true,
       dialogTitle: 'Select firmware image files',
     );
-    if (result == null) return;
+    if (result == null) {
+      return;
+    }
     final files = result.files
         .where((file) => file.path != null)
         .map((file) => File(file.path!))
@@ -522,7 +553,9 @@ class _FlasherHomeState extends State<FlasherHome> {
 
   Future<String?> _findFastboot() async {
     final bundledDirectory = _platformToolsDirectory();
-    if (bundledDirectory != null) return p.join(bundledDirectory, 'fastboot.exe');
+    if (bundledDirectory != null) {
+      return p.join(bundledDirectory, 'fastboot.exe');
+    }
     return 'fastboot';
   }
 
@@ -533,7 +566,9 @@ class _FlasherHomeState extends State<FlasherHome> {
       final output = '${result.stdout}'.trim();
       final errors = '${result.stderr}'.trim();
       _writeLog(output.isEmpty ? 'No Fastboot device detected.' : 'Connected device(s): $output');
-      if (errors.isNotEmpty) _writeLog(errors);
+      if (errors.isNotEmpty) {
+        _writeLog(errors);
+      }
     } catch (error) {
       _writeLog('Could not run Fastboot. Check Platform Tools installation: $error');
     }
@@ -574,7 +609,9 @@ class _FlasherHomeState extends State<FlasherHome> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
 
     setState(() => _busy = true);
     try {
@@ -594,8 +631,12 @@ class _FlasherHomeState extends State<FlasherHome> {
         );
         final stdout = '${result.stdout}'.trim();
         final stderr = '${result.stderr}'.trim();
-        if (stdout.isNotEmpty) _writeLog(stdout);
-        if (stderr.isNotEmpty) _writeLog(stderr);
+        if (stdout.isNotEmpty) {
+          _writeLog(stdout);
+        }
+        if (stderr.isNotEmpty) {
+          _writeLog(stderr);
+        }
         if (result.exitCode != 0) {
           _writeLog('Flash failed for $partition (exit code ${result.exitCode}). Remaining images were not flashed.');
           return;
@@ -606,7 +647,9 @@ class _FlasherHomeState extends State<FlasherHome> {
     } catch (error) {
       _writeLog('Fastboot operation failed: $error');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() {
+        => _busy = false);
+      }
     }
   }
 
@@ -831,16 +874,22 @@ class _FlasherHomeState extends State<FlasherHome> {
   }
 
   Future<void> _startLogcat() async {
-    if (_logcatRunning) return;
+    if (_logcatRunning) {
+      return;
+    }
     try {
       final process = await Process.start(_adbExecutable, ['logcat', '-b', _logcatBuffer, '*:${_logcatLevel.substring(0, 1)}'], runInShell: false);
       _logcatProcess = process;
       setState(() => _logcatRunning = true);
       process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         setState(() {
           _logcatLines.add(line);
-          if (_logcatLines.length > 5000) _logcatLines.removeRange(0, 500);
+          if (_logcatLines.length > 5000) {
+            _logcatLines.removeRange(0, 500);
+          }
         });
       });
       process.stderr.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) { if (mounted) _writeLog('adb: $line'); });
@@ -854,14 +903,18 @@ class _FlasherHomeState extends State<FlasherHome> {
   Future<void> _stopLogcat() async {
     _logcatProcess?.kill();
     _logcatProcess = null;
-    if (mounted) setState(() => _logcatRunning = false);
+    if (mounted) setState(() {
+      => _logcatRunning = false);
+    }
   }
 
   List<String> get _filteredLogcat => _logcatLines.where((line) => line.toLowerCase().contains(_logcatSearch.toLowerCase())).toList();
 
   Future<void> _saveLogcat() async {
     final path = await FilePicker.platform.saveFile(dialogTitle: 'Save Logcat output', fileName: 'flasherpro-logcat.txt', type: FileType.custom, allowedExtensions: ['txt', 'log']);
-    if (path == null) return;
+    if (path == null) {
+      return;
+    }
     await File(path).writeAsString(_filteredLogcat.join('\n'));
     _writeLog('Saved Logcat to $path');
   }
@@ -894,7 +947,9 @@ class _FlasherHomeState extends State<FlasherHome> {
       setState(() {
         _driverPackages..clear()..addAll(packages);
         _driverOutput = output.isEmpty ? 'No driver information returned.' : output;
-        if (_selectedDriver != null && !_driverPackages.contains(_selectedDriver)) _selectedDriver = null;
+        if (_selectedDriver != null && !_driverPackages.contains(_selectedDriver)) {
+          _selectedDriver = null;
+        }
       });
       _writeLog('Loaded ${packages.length} published driver package(s).');
     } catch (error) {
@@ -905,7 +960,9 @@ class _FlasherHomeState extends State<FlasherHome> {
   Future<void> _installDriver() async {
     final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['inf'], dialogTitle: 'Select USB driver INF');
     final path = result?.files.single.path;
-    if (path == null) return;
+    if (path == null) {
+      return;
+    }
     final escaped = path.replaceAll("'", "''");
     final script = "Start-Process -FilePath 'pnputil.exe' -ArgumentList @('/add-driver', '$escaped', '/install') -Verb RunAs -Wait";
     try {
@@ -919,7 +976,9 @@ class _FlasherHomeState extends State<FlasherHome> {
 
   Future<void> _removeDriver() async {
     final driver = _selectedDriver;
-    if (driver == null) return;
+    if (driver == null) {
+      return;
+    }
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
       title: const Text('Remove driver package?'),
       content: Text('This removes $driver from the Windows driver store and may affect connected devices. Continue only if you recognize this package.'),
@@ -928,7 +987,9 @@ class _FlasherHomeState extends State<FlasherHome> {
         FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove')),
       ],
     ));
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      return;
+    }
     try {
       final script = "Start-Process -FilePath 'pnputil.exe' -ArgumentList @('/delete-driver', '$driver', '/uninstall') -Verb RunAs -Wait";
       final proc = await Process.run('powershell.exe', ['-NoProfile','-Command',script]);
