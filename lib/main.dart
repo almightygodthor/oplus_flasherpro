@@ -143,6 +143,87 @@ class _FlasherHomeState extends State<FlasherHome> {
     });
   }
 
+  String _safeFolderName(String input) {
+    final cleaned = input.replaceAll(RegExp(r'[<>:"/\\|?*\x00-\x1F]'), '_')
+        .trim().replaceAll(RegExp(r'[. ]+$'), '');
+    if (cleaned.isEmpty) return 'Firmware_${DateTime.now().millisecondsSinceEpoch}';
+    return cleaned.substring(0, cleaned.length > 80 ? 80 : cleaned.length);
+  }
+
+  Future<Directory> _firmwareLibraryDirectory() async {
+    final installDir = Directory(p.dirname(Platform.resolvedExecutable));
+    final preferred = Directory(p.join(installDir.path, 'Firmware'));
+    try {
+      await preferred.create(recursive: true);
+      final probe = File(p.join(preferred.path, '.write_test'));
+      await probe.writeAsString('ok');
+      await probe.delete();
+      return preferred;
+    } catch (_) {
+      final local = Platform.environment['LOCALAPPDATA'] ??
+          Platform.environment['USERPROFILE'] ?? Directory.systemTemp.path;
+      final fallback = Directory(p.join(local, 'FlasherPro', 'Firmware'));
+      await fallback.create(recursive: true);
+      return fallback;
+    }
+  }
+
+  String _payloadDumperExecutable() =>
+      p.join(p.dirname(Platform.resolvedExecutable), 'payload-dumper-go.exe');
+
+  String _firmwareSectionFor(String name) {
+    const bootloader = ['preloader', 'lk', 'lk2', 'abl', 'xbl', 'xbl_config', 'sbl',
+      'sbl1', 'tz', 'tee', 'trustzone', 'rpm', 'hyp', 'devcfg', 'keymaster',
+      'cmnlib', 'mcupm', 'sspm', 'spmfw', 'scp', 'gz', 'dpm', 'md1img', 'logo'];
+    const critical = ['boot', 'vendor_boot', 'init_boot', 'recovery', 'vbmeta',
+      'dtbo', 'super', 'metadata', 'misc', 'persist', 'para', 'expdb', 'frp',
+      'nvram', 'nvdata', 'protect1', 'protect2'];
+    final stem = p.basenameWithoutExtension(name).toLowerCase().replaceAll(RegExp(r'_[ab]$'), '');
+    if (bootloader.any((part) => stem == part || stem.startsWith('${part}_'))) return 'bootloader';
+    if (critical.any((part) => stem == part || stem.startsWith('${part}_'))) return 'critical';
+    return 'system';
+  }
+
+  Future<void> _refreshSavedFirmwares() async {
+    final root = await _firmwareLibraryDirectory();
+    final entries = await root.list(followLinks: false)
+        .where((entity) => entity is Directory && !p.basename(entity.path).startsWith('.'))
+        .cast<Directory>().toList();
+    entries.sort((a, b) => p.basename(a.path).toLowerCase().compareTo(p.basename(b.path).toLowerCase()));
+    if (mounted) setState(() => _savedFirmwares = entries);
+  }
+
+  Future<void> _openDirectory(String path) async {
+    try {
+      if (Platform.isWindows) {
+        await Process.start('explorer.exe', [path], mode: ProcessStartMode.detached);
+      } else if (Platform.isMacOS) {
+        await Process.start('open', [path], mode: ProcessStartMode.detached);
+      } else {
+        await Process.start('xdg-open', [path], mode: ProcessStartMode.detached);
+      }
+    } catch (error) { _writeLog('Could not open folder: $error'); }
+  }
+
+  Future<void> _deleteFirmware(Directory firmware) async {
+    final name = p.basename(firmware.path);
+    final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(
+      title: const Text('Delete unpacked firmware?'),
+      content: Text('Permanently delete "$name" and all extracted images? This cannot be undone.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Delete')),
+      ],
+    ));
+    if (confirmed != true) return;
+    try {
+      await firmware.delete(recursive: true);
+      if (_activeFirmwareDirectory == firmware.path) _activeFirmwareDirectory = null;
+      await _refreshSavedFirmwares();
+      _writeLog('Deleted unpacked firmware: $name');
+    } catch (error) { _writeLog('Could not delete $name: $error'); }
+  }
+
   String? _platformToolsDirectory() {
     final executableDirectory = p.dirname(Platform.resolvedExecutable);
     final candidates = <String>[
