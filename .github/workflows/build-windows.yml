@@ -70,6 +70,17 @@ jobs:
           if ($null -eq $dumper) { throw "payload-dumper-go.exe was not found in the official release archive." }
           $releaseDir = "build\windows\x64\runner\Release"
           Copy-Item $dumper.FullName "$releaseDir\payload-dumper-go.exe" -Force
+          $xzArchive = "$env:RUNNER_TEMP\xz-windows.zip"
+          $xzExtract = "$env:RUNNER_TEMP\xz-windows"
+          Invoke-WebRequest -Uri "https://github.com/tukaani-project/xz/releases/download/v5.8.4/xz-5.8.4-windows.zip" -OutFile $xzArchive
+          New-Item -ItemType Directory -Force -Path $xzExtract | Out-Null
+          Expand-Archive -Path $xzArchive -DestinationPath $xzExtract -Force
+          $xz = Get-ChildItem -Path $xzExtract -Recurse -Filter "xz.exe" | Where-Object { $_.FullName -match "x86-64|x86_64|x64" } | Select-Object -First 1
+          if ($null -eq $xz) { $xz = Get-ChildItem -Path $xzExtract -Recurse -Filter "xz.exe" | Select-Object -First 1 }
+          if ($null -eq $xz) { throw "xz.exe was not found in the official XZ Utils release archive." }
+          Copy-Item $xz.FullName "$releaseDir\xz.exe" -Force
+          $xzLicense = Get-ChildItem -Path $xzExtract -Recurse -File | Where-Object { $_.Name -match "COPYING|LICENSE" } | Select-Object -First 1
+          if ($null -ne $xzLicense) { Copy-Item $xzLicense.FullName "$releaseDir\XZ-Utils-LICENSE.txt" -Force }
 
       - name: Prepare bundled application
         shell: pwsh
