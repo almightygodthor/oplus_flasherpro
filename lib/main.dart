@@ -365,7 +365,15 @@ class _FlasherHomeState extends State<FlasherHome> {
       if (mounted) setState(() { _unpackProgress = 0.1; _unpackStatus = 'Unpacking Android payload…'; });
       _writeLog('Starting payload-dumper-go: ${p.basename(payload.path)}');
       final args = ['-o', rawOutput.path, payload.path];
-      final process = await Process.start(dumper, args, workingDirectory: p.dirname(dumper), runInShell: false);
+      final process = await Process.start(
+        dumper, args,
+        workingDirectory: p.dirname(dumper),
+        environment: {
+          ...Platform.environment,
+          'PATH': '${p.dirname(dumper)};${Platform.environment['PATH'] ?? ''}',
+        },
+        runInShell: false,
+      );
       final outputLines = <String>[];
           process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
         outputLines.add(line);
@@ -395,6 +403,9 @@ class _FlasherHomeState extends State<FlasherHome> {
       if (images.isEmpty) throw const FormatException('payload-dumper-go finished but no .img images were created.');
 
       final counts = <String, int>{'bootloader': 0, 'critical': 0, 'system': 0};
+      for (final section in counts.keys) {
+        await Directory(p.join(destination.path, section)).create(recursive: true);
+      }
       for (final image in images) {
         final section = _firmwareSectionFor(p.basename(image.path));
         final sectionDir = Directory(p.join(destination.path, section));
