@@ -408,6 +408,7 @@ class _FlasherHomeState extends State<FlasherHome> {
         runInShell: false,
       );
       _payloadProcess = process;
+      if (_cancelUnpack) process.kill(ProcessSignal.sigterm);
       final outputLines = <String>[];
           process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
         outputLines.add(line);
