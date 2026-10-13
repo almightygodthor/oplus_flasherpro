@@ -81,19 +81,27 @@ class FlasherProApp extends StatelessWidget {
   }
 }
 
-enum FlasherSection { extraTools, logcat, drivers, platformTools, unpacker, flasher, settings }
+enum FlasherSection { extraTools, logcat, drivers, unpacker, flasher, settings }
 
 class FlasherHome extends StatefulWidget {
-  const FlasherHome({super.key});
+  const FlasherHome({super.key, required this.appTheme, required this.uiScale, required this.onThemeChanged, required this.onScaleChanged});
+  final String appTheme;
+  final String uiScale;
+  final ValueChanged<String> onThemeChanged;
+  final ValueChanged<String> onScaleChanged;
 
   @override
   State<FlasherHome> createState() => _FlasherHomeState();
 }
 
 class _FlasherHomeState extends State<FlasherHome> {
-  FlasherSection _section = FlasherSection.platformTools;
+  FlasherSection _section = FlasherSection.extraTools;
   String? _firmwareArchive;
-  String? _outputDirectory;
+  final TextEditingController _firmwareNameController = TextEditingController();
+  double _unpackProgress = 0;
+  String _unpackStatus = 'Ready to unpack';
+  String? _activeFirmwareDirectory;
+  List<Directory> _savedFirmwares = [];
   final List<File> _images = [];
   final Set<String> _selectedImages = {};
   final List<String> _log = [];
@@ -108,15 +116,12 @@ class _FlasherHomeState extends State<FlasherHome> {
   final List<String> _driverPackages = [];
   String? _selectedDriver;
   String? _driverOutput;
-  String _appTheme = 'Dark';
-  String _uiScale = '100%';
   bool _aboutExpanded = true;
 
   String get _sectionTitle => switch (_section) {
         FlasherSection.extraTools => 'Extra Tools',
         FlasherSection.logcat => 'Logcat',
         FlasherSection.drivers => 'Drivers',
-        FlasherSection.platformTools => 'Platform Tools',
         FlasherSection.unpacker => 'Firmware Unpacker',
         FlasherSection.flasher => 'Firmware Flasher',
         FlasherSection.settings => 'Settings',
@@ -391,7 +396,6 @@ class _FlasherHomeState extends State<FlasherHome> {
                 const SizedBox(height: 34),
                 _navItem(FlasherSection.extraTools, Icons.widgets_outlined, 'Extra Tools'),
                 _navItem(FlasherSection.drivers, Icons.usb_rounded, 'Drivers'),
-                _navItem(FlasherSection.platformTools, Icons.terminal_rounded, 'Platform Tools'),
                 _navItem(FlasherSection.unpacker, Icons.inventory_2_outlined, 'Firmware Unpacker'),
                 _navItem(FlasherSection.flasher, Icons.memory_rounded, 'Firmware Flasher'),
                 _navItem(FlasherSection.settings, Icons.settings_outlined, 'Settings'),
@@ -422,7 +426,7 @@ class _FlasherHomeState extends State<FlasherHome> {
                                 FlasherSection.extraTools => 'Quick access to Android utilities.',
                                 FlasherSection.logcat => 'Stream, filter, and save Android device logs.',
                                 FlasherSection.drivers => 'Install USB drivers and manage Windows driver packages.',
-                                FlasherSection.platformTools => 'Open a ready-to-use Fastboot command window.',
+                                FlasherSection.unpacker => 'Extract payload images and manage saved firmware.',
                                 FlasherSection.unpacker => 'Extract ZIP firmware packages to a folder you choose.',
                                 FlasherSection.flasher => 'Review image files and flash selected partitions.',
                                 FlasherSection.settings => 'Personalize FlasherPro and view creator information.',
@@ -512,7 +516,6 @@ class _FlasherHomeState extends State<FlasherHome> {
       FlasherSection.extraTools => _extraToolsPanel(),
       FlasherSection.logcat => _logcatPanel(),
       FlasherSection.drivers => _driversPanel(),
-      FlasherSection.platformTools => _platformToolsPanel(),
       FlasherSection.unpacker => _unpackerPanel(),
       FlasherSection.flasher => _flasherPanel(),
       FlasherSection.settings => _settingsPanel(),
@@ -521,7 +524,7 @@ class _FlasherHomeState extends State<FlasherHome> {
 
   Widget _extraToolsPanel() {
     return Wrap(spacing: 16, runSpacing: 16, children: [
-      _toolTile(Icons.terminal_rounded, 'Platform Tools', 'Open ADB / Fastboot CMD', () => setState(() => _section = FlasherSection.platformTools)),
+      _toolTile(Icons.terminal_rounded, 'Platform Tools', 'Open ADB / Fastboot CMD', _openPlatformTools),
       _toolTile(Icons.bug_report_outlined, 'Logcat', 'Live Android system logs', () => setState(() => _section = FlasherSection.logcat)),
     ]);
   }
@@ -719,16 +722,16 @@ class _FlasherHomeState extends State<FlasherHome> {
         const SizedBox(height: 12),
         _settingsRow(Icons.palette_outlined, 'App theme', 'Select which app theme to display',
           DropdownButton<String>(
-            value: _appTheme, underline: const SizedBox.shrink(),
-            items: const ['Dark', 'System'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-            onChanged: (v) => setState(() => _appTheme = v ?? 'Dark'),
+            value: widget.appTheme, underline: const SizedBox.shrink(),
+            items: const ['Dark', 'System', 'Light'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+            onChanged: (v) => widget.onThemeChanged(v ?? 'Dark'),
           )),
         const SizedBox(height: 8),
         _settingsRow(Icons.zoom_in_rounded, 'UI Scale', 'Adjust interface size for your display',
           DropdownButton<String>(
-            value: _uiScale, underline: const SizedBox.shrink(),
-            items: const ['90%', '100%', '110%', '125%'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-            onChanged: (v) => setState(() => _uiScale = v ?? '100%'),
+            value: widget.uiScale, underline: const SizedBox.shrink(),
+            items: const ['80%', '90%', '100%', '110%', '125%', '140%'].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+            onChanged: (v) => widget.onScaleChanged(v ?? '100%'),
           )),
         const SizedBox(height: 26),
         const Text('About this tool', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
