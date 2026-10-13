@@ -279,54 +279,148 @@ class _FlasherHomeState extends State<FlasherHome> {
     _writeLog('Selected archive: ${p.basename(_firmwareArchive!)}');
   }
 
-  Future<void> _chooseOutputDirectory() async {
-    final directory = await FilePicker.platform.getDirectoryPath(
-      dialogTitle: 'Choose extraction destination',
-    );
-    if (directory == null) return;
-    setState(() => _outputDirectory = directory);
-  }
-
   Future<void> _extractFirmware() async {
     final archivePath = _firmwareArchive;
-    final outputPath = _outputDirectory;
-    if (archivePath == null || outputPath == null) {
-      _writeLog('Select a ZIP archive and destination directory first.');
+    if (archivePath == null) {
+      _writeLog('Select a firmware ZIP archive first.');
+      return;
+    }
+    final enteredName = _firmwareNameController.text.trim();
+    final safeName = _safeFolderName(enteredName.isEmpty
+        ? p.basenameWithoutExtension(archivePath) : enteredName);
+    final library = await _firmwareLibraryDirectory();
+    final destination = Directory(p.join(library.path, safeName));
+    if (await destination.exists()) {
+      _writeLog('Firmware folder "$safeName" already exists; use a different name or delete it first.');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That firmware folder already exists. Choose another name.')));
       return;
     }
 
-    setState(() => _busy = true);
+    setState(() { _busy = true; _unpackProgress = 0; _unpackStatus = 'Preparing temporary workspace…'; });
+    Directory? tempRoot;
+    var succeeded = false;
     try {
+      await destination.create(recursive: true);
+      final tempParent = Directory(p.join(library.path, '.temp'));
+      await tempParent.create(recursive: true);
+      tempRoot = await tempParent.createTemp('unpack_');
+      final zipWorkspace = Directory(p.join(tempRoot.path, 'zip'));
+      await zipWorkspace.create(recursive: true);
+      setState(() => _unpackStatus = 'Reading ZIP archive…');
       final bytes = await File(archivePath).readAsBytes();
       final archive = ZipDecoder().decodeBytes(bytes);
-      final root = p.normalize(p.absolute(outputPath));
-      var extracted = 0;
+      final payloadEntries = archive.where((entry) =>
+          entry.isFile && p.basename(entry.name).toLowerCase() == 'payload.bin').toList();
+      if (payloadEntries.isEmpty) {
+        throw const FormatException('This ZIP does not contain payload.bin. Only Android OTA ZIP packages with payload.bin are supported.');
+      }
+
+      var processed = 0;
+      final payloadFiles = <File>[];
       for (final entry in archive) {
-        final target = p.normalize(p.join(root, entry.name));
-        if (target != root && !p.isWithin(root, target)) {
-          _writeLog('Skipped unsafe archive path: ${entry.name}');
+        final target = p.normalize(p.join(zipWorkspace.path, entry.name));
+        if (!p.isWithin(zipWorkspace.path, target)) {
+          _writeLog('Skipped unsafe ZIP entry: ${entry.name}');
           continue;
         }
         if (entry.isFile) {
           final file = File(target);
           await file.parent.create(recursive: true);
           final data = entry.readBytes();
-          if (data == null) continue;
-          await file.writeAsBytes(data, flush: true);
-          extracted++;
+          if (data != null) {
+            await file.writeAsBytes(data, flush: false);
+            if (p.basename(entry.name).toLowerCase() == 'payload.bin') payloadFiles.add(file);
+          }
         } else {
           await Directory(target).create(recursive: true);
         }
+        processed++;
+        if (mounted) setState(() {
+          _unpackProgress = archive.isEmpty ? 0.08 : 0.08 * processed / archive.length;
+          _unpackStatus = 'Extracting ZIP: $processed/${archive.length} entries';
+        });
       }
-      _writeLog('Extraction completed: $extracted files written to $root');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Extracted $extracted files successfully.')),
-        );
+
+      final dumper = _payloadDumperExecutable();
+      if (!await File(dumper).exists()) {
+        throw FileSystemException('Bundled payload-dumper-go.exe was not found beside FlasherPro.', dumper);
       }
+      final rawOutput = Directory(p.join(tempRoot.path, 'payload-images'));
+      await rawOutput.create(recursive: true);
+      final payload = payloadFiles.first;
+      if (mounted) setState(() { _unpackProgress = 0.1; _unpackStatus = 'Unpacking Android payload…'; });
+      _writeLog('Starting payload-dumper-go: ${p.basename(payload.path)}');
+      final args = ['-o', rawOutput.path, payload.path];
+      final process = await Process.start(dumper, args, workingDirectory: p.dirname(dumper), runInShell: false);
+      final outputLines = <String>[];
+      var lastPercent = -1;
+      process.stdout.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
+        outputLines.add(line);
+        _writeLog(line);
+        final match = RegExp(r'(\\d{1,3})\\s*%').firstMatch(line);
+        if (match != null) {
+          final percent = (int.tryParse(match.group(1)!) ?? 0).clamp(0, 100);
+          lastPercent = percent;
+          if (mounted) setState(() {
+            _unpackProgress = 0.1 + percent / 100 * 0.85;
+            _unpackStatus = 'Payload extraction: $percent%';
+          });
+        } else if (mounted) {
+          setState(() => _unpackStatus = line.length > 72 ? '${line.substring(0, 69)}…' : line);
+        }
+      });
+      process.stderr.transform(const SystemEncoding().decoder).transform(const LineSplitter()).listen((line) {
+        outputLines.add(line);
+        _writeLog('payload-dumper-go: $line');
+      });
+      final exitCode = await process.exitCode;
+      if (exitCode != 0) {
+        throw ProcessException(dumper, args, 'payload-dumper-go exited with code $exitCode. ${outputLines.take(10).join(' | ')}', exitCode);
+      }
+      final images = await rawOutput.list(recursive: true, followLinks: false)
+          .where((entity) => entity is File && p.extension(entity.path).toLowerCase() == '.img')
+          .cast<File>().toList();
+      if (images.isEmpty) throw const FormatException('payload-dumper-go finished but no .img images were created.');
+
+      final counts = <String, int>{'bootloader': 0, 'critical': 0, 'system': 0};
+      for (final image in images) {
+        final section = _firmwareSectionFor(p.basename(image.path));
+        final sectionDir = Directory(p.join(destination.path, section));
+        await sectionDir.create(recursive: true);
+        await image.copy(p.join(sectionDir.path, p.basename(image.path)));
+        counts[section] = counts[section]! + 1;
+      }
+      await File(p.join(destination.path, 'firmware-info.txt')).writeAsString(
+        'Source ZIP: ${p.basename(archivePath)}\n'
+        'Created: ${DateTime.now().toIso8601String()}\n'
+        'Total images: ${images.length}\n'
+        'Bootloader: ${counts['bootloader']}\nCritical: ${counts['critical']}\nSystem: ${counts['system']}\n');
+      succeeded = true;
+      if (mounted) setState(() {
+        _activeFirmwareDirectory = destination.path;
+        _unpackProgress = 1;
+        _unpackStatus = 'Complete — ${images.length} images unpacked';
+      });
+      await _refreshSavedFirmwares();
+      _writeLog('Unpack complete: ${images.length} images saved to ${destination.path}');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unpacked ${images.length} images into "$safeName".')));
     } catch (error) {
-      _writeLog('Extraction failed: $error');
+      _writeLog('Firmware unpack failed: $error');
+      if (mounted) {
+        setState(() => _unpackStatus = 'Unpack failed');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Unpack failed: $error')));
+      }
     } finally {
+      if (tempRoot != null && await tempRoot.exists()) {
+        try { await tempRoot.delete(recursive: true); }
+        catch (error) { _writeLog('Temporary cleanup warning: $error'); }
+      }
+      if (!succeeded && await destination.exists()) {
+        try { await destination.delete(recursive: true); }
+        catch (error) { _writeLog('Failed-output cleanup warning: $error'); }
+      }
       if (mounted) setState(() => _busy = false);
     }
   }
