@@ -1139,11 +1139,19 @@ class _FlasherHomeState extends State<FlasherHome> {
           const SizedBox(height: 12),
           TextField(controller: _firmwareNameController, enabled: !_busy, decoration: const InputDecoration(labelText: 'Firmware folder name (optional)', hintText: 'Defaults to the ZIP filename', prefixIcon: Icon(Icons.drive_file_rename_outline))),
           const SizedBox(height: 16),
-          Row(children: [
-            Expanded(child: FilledButton.icon(onPressed: _busy ? null : _extractFirmware, icon: const Icon(Icons.inventory_2_outlined), label: Text(_busy ? 'Unpacking…' : 'Unpack firmware'))),
-            const SizedBox(width: 10),
-            OutlinedButton.icon(onPressed: _busy ? null : () async { final root = await _firmwareLibraryDirectory(); await _openDirectory(_activeFirmwareDirectory ?? root.path); }, icon: const Icon(Icons.folder_open_rounded), label: const Text('Open Destination Folder')),
-          ]),
+          if (_busy)
+            SizedBox(width: double.infinity, child: FilledButton.icon(
+              onPressed: _stopUnpack,
+              icon: const Icon(Icons.stop_circle_outlined),
+              label: const Text('Stop unpacking and clean up'),
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF7777), foregroundColor: const Color(0xFF171717)),
+            ))
+          else
+            Row(children: [
+              Expanded(child: FilledButton.icon(onPressed: _extractFirmware, icon: const Icon(Icons.inventory_2_outlined), label: const Text('Unpack firmware'))),
+              const SizedBox(width: 10),
+              OutlinedButton.icon(onPressed: () async { final root = await _firmwareLibraryDirectory(); await _openDirectory(_activeFirmwareDirectory ?? root.path); }, icon: const Icon(Icons.folder_open_rounded), label: const Text('Open Destination Folder')),
+            ]),
           const SizedBox(height: 18),
           Row(children: [
             Expanded(child: AnimatedSwitcher(duration: const Duration(milliseconds: 220), child: Text(_unpackStatus, key: ValueKey(_unpackStatus), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)))),
