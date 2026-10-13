@@ -44,7 +44,9 @@ class _FlasherProAppState extends State<FlasherProApp> with WidgetsBindingObserv
 
   @override
   void didChangePlatformBrightness() {
-    if (_appTheme == 'System' && mounted) setState(() {});
+    if (_appTheme == 'System' && mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -421,7 +423,9 @@ class _FlasherHomeState extends State<FlasherHome> {
       final rawOutput = Directory(p.join(tempRoot.path, 'payload-images'));
       await rawOutput.create(recursive: true);
       final payload = payloadFiles.first;
-      if (mounted) setState(() { _unpackProgress = 0.1; _unpackStatus = 'Unpacking Android payload…'; });
+      if (mounted) {
+        setState(() { _unpackProgress = 0.1; _unpackStatus = 'Unpacking Android payload…'; });
+      }
       _writeLog('Starting payload-dumper-go: ${p.basename(payload.path)}');
       final args = ['-o', rawOutput.path, payload.path];
       final process = await Process.start(
@@ -503,7 +507,9 @@ class _FlasherHomeState extends State<FlasherHome> {
       _writeLog('Unpack cancelled; temporary files and partial output removed.');
       _images.clear();
       _selectedImages.clear();
-      if (mounted) setState(() { _unpackProgress = 0; _unpackStatus = 'Cancelled — temporary data removed'; });
+      if (mounted) {
+        setState(() { _unpackProgress = 0; _unpackStatus = 'Cancelled — temporary data removed'; });
+      }
     } catch (error) {
       _writeLog('Firmware unpack failed: $error');
       if (mounted) {
