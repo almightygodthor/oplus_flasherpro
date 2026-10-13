@@ -1065,32 +1065,52 @@ class _FlasherHomeState extends State<FlasherHome> {
 
   Widget _unpackerPanel() {
     return SingleChildScrollView(
-      child: SizedBox(
-        width: 760,
-        child: Card(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Firmware archive', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
-                const Text('Choose a ZIP package and a destination directory. Encrypted OFP/OPLUS packages are not supported by ZIP extraction.', style: TextStyle(color: Colors.white60, height: 1.5)),
-                const SizedBox(height: 20),
-                _pathRow('Selected archive', _firmwareArchive, 'Browse ZIP', _chooseFirmwareArchive),
-                const SizedBox(height: 12),
-                _pathRow('Destination Folder', _outputDirectory, 'Browse folder', _chooseOutputDirectory, leading: Icons.folder_outlined),
-                const SizedBox(height: 22),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _extractFirmware,
-                  icon: const Icon(Icons.folder_zip_outlined),
-                  label: Text(_busy ? 'Please wait…' : 'Extract firmware'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Firmware unpacker', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          const Text('Unpack Android OTA payload images with the bundled payload-dumper-go. ZIP and payload files are temporary and are removed after processing.', style: TextStyle(color: Colors.white60, height: 1.5)),
+          const SizedBox(height: 18),
+          _pathRow('Firmware ZIP', _firmwareArchive, 'Browse ZIP', _chooseFirmwareArchive),
+          const SizedBox(height: 12),
+          TextField(controller: _firmwareNameController, enabled: !_busy, decoration: const InputDecoration(labelText: 'Firmware folder name (optional)', hintText: 'Defaults to the ZIP filename', prefixIcon: Icon(Icons.drive_file_rename_outline))),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: FilledButton.icon(onPressed: _busy ? null : _extractFirmware, icon: const Icon(Icons.inventory_2_outlined), label: Text(_busy ? 'Unpacking…' : 'Unpack firmware'))),
+            const SizedBox(width: 10),
+            OutlinedButton.icon(onPressed: _busy ? null : () async { final root = await _firmwareLibraryDirectory(); await _openDirectory(root.path); }, icon: const Icon(Icons.folder_open_rounded), label: const Text('Open Destination Folder')),
+          ]),
+          const SizedBox(height: 18),
+          Row(children: [
+            Expanded(child: AnimatedSwitcher(duration: const Duration(milliseconds: 220), child: Text(_unpackStatus, key: ValueKey(_unpackStatus), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)))),
+            Text('${(_unpackProgress * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
+          ]),
+          const SizedBox(height: 8),
+          ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _busy ? (_unpackProgress > 0 ? _unpackProgress : null) : _unpackProgress, minHeight: 8)),
+          if (_busy) const Padding(padding: EdgeInsets.only(top: 10), child: Text('Other actions are disabled while unpacking.', style: TextStyle(color: Colors.white54, fontSize: 11))),
+        ]))),
+        const SizedBox(height: 16),
+        Row(children: [
+          const Expanded(child: Text('Saved firmware', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
+          IconButton(tooltip: 'Refresh list', onPressed: _busy ? null : _refreshSavedFirmwares, icon: const Icon(Icons.refresh_rounded)),
+        ]),
+        if (_savedFirmwares.isEmpty)
+          const Card(child: Padding(padding: EdgeInsets.all(18), child: Text('No unpacked firmware yet. Completed firmware folders appear here.', style: TextStyle(color: Colors.white60))))
+        else
+          ..._savedFirmwares.map((firmware) => Card(child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Row(children: [
+              const Icon(Icons.folder_copy_outlined, color: Color(0xFFB8F36B), size: 28),
+              const SizedBox(width: 12),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p.basename(firmware.path), style: const TextStyle(fontWeight: FontWeight.w700)),
+                Text(firmware.path, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              ])),
+              IconButton(tooltip: 'Open firmware folder', onPressed: () => _openDirectory(firmware.path), icon: const Icon(Icons.folder_open_rounded)),
+              IconButton(tooltip: 'Delete firmware', onPressed: _busy ? null : () => _deleteFirmware(firmware), icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF7777))),
+            ]),
+          ))),
+      ]),
     );
   }
 
