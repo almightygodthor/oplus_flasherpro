@@ -33,9 +33,26 @@ class FlasherProApp extends StatefulWidget {
   State<FlasherProApp> createState() => _FlasherProAppState();
 }
 
-class _FlasherProAppState extends State<FlasherProApp> {
+class _FlasherProAppState extends State<FlasherProApp> with WidgetsBindingObserver {
   String _appTheme = 'Dark';
   String _uiScale = '100%';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangePlatformBrightness() {
+    if (_appTheme == 'System' && mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +61,12 @@ class _FlasherProAppState extends State<FlasherProApp> {
         ? WidgetsBinding.instance.platformDispatcher.platformBrightness
         : (_appTheme == 'Light' ? Brightness.light : Brightness.dark);
     final dark = brightness == Brightness.dark;
+    final scale = (double.tryParse(_uiScale.replaceAll('%', '')) ?? 100) / 100;
+    final density = (scale - 1).clamp(-1.0, 1.0);
     final theme = ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      visualDensity: VisualDensity(horizontal: density, vertical: density),
       scaffoldBackgroundColor: dark ? const Color(0xFF101114) : const Color(0xFFF4F6F8),
       colorScheme: ColorScheme.fromSeed(seedColor: accent, brightness: brightness,
         surface: dark ? const Color(0xFF181A1F) : Colors.white),
@@ -71,7 +91,6 @@ class _FlasherProAppState extends State<FlasherProApp> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
       ),
     );
-    final scale = (double.tryParse(_uiScale.replaceAll('%', '')) ?? 100) / 100;
     return MaterialApp(
       title: 'FlasherPro',
       debugShowCheckedModeBanner: false,
