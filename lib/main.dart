@@ -509,8 +509,14 @@ class _FlasherHomeState extends State<FlasherHome> {
       await _refreshSavedFirmwares();
       _writeLog('Unpack complete: ${images.length} images saved to ${destination.path}');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unpacked ${images.length} images into "$safeName".')),
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Unpacking Completed'),
+            content: Text('Successfully unpacked ' + images.length.toString() + ' images into "' + safeName + '". Please proceed to the Firmware Flasher tab to flash it.'),
+            actions: [FilledButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Close'))],
+          ),
         );
       }
     } on _UnpackCancelled {
@@ -1174,64 +1180,48 @@ class _FlasherHomeState extends State<FlasherHome> {
   }
 
   Widget _unpackerPanel() {
-    return SingleChildScrollView(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Card(child: Padding(padding: const EdgeInsets.all(20), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Firmware unpacker', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          const Text('Unpack Android OTA payload images with the bundled payload-dumper-go. ZIP and payload files are temporary and are removed after processing.', style: TextStyle(color: Colors.white60, height: 1.5)),
-          const SizedBox(height: 18),
-          _pathRow('Firmware ZIP', _firmwareArchive, 'Browse ZIP', _chooseFirmwareArchive),
-          const SizedBox(height: 12),
-          TextField(controller: _firmwareNameController, enabled: !_busy, decoration: const InputDecoration(labelText: 'Firmware folder name (optional)', hintText: 'Defaults to the ZIP filename', prefixIcon: Icon(Icons.drive_file_rename_outline))),
-          const SizedBox(height: 16),
-          if (_busy)
-            SizedBox(width: double.infinity, child: FilledButton.icon(
-              onPressed: _stopUnpack,
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('Stop unpacking and clean up'),
-              style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF7777), foregroundColor: const Color(0xFF171717)),
-            ))
-          else
-            Row(children: [
-              Expanded(child: FilledButton.icon(onPressed: _extractFirmware, icon: const Icon(Icons.inventory_2_outlined), label: const Text('Unpack firmware'))),
-              const SizedBox(width: 10),
-              OutlinedButton.icon(onPressed: () async { final root = await _firmwareLibraryDirectory(); await _openDirectory(_activeFirmwareDirectory ?? root.path); }, icon: const Icon(Icons.folder_open_rounded), label: const Text('Open Destination Folder')),
-            ]),
-          const SizedBox(height: 18),
-          Row(children: [
-            Expanded(child: AnimatedSwitcher(duration: const Duration(milliseconds: 220), child: Text(_unpackStatus, key: ValueKey(_unpackStatus), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white70, fontSize: 12)))),
-            Text('${(_unpackProgress * 100).round()}%', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
-          ]),
-          const SizedBox(height: 8),
-          ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _busy ? (_unpackProgress > 0 ? _unpackProgress : null) : _unpackProgress, minHeight: 8)),
-          if (_busy) const Padding(padding: EdgeInsets.only(top: 10), child: Text('Other actions are disabled while unpacking.', style: TextStyle(color: Colors.white54, fontSize: 11))),
-        ]))),
-        const SizedBox(height: 16),
-        Row(children: [
-          const Expanded(child: Text('Saved firmware', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700))),
-          IconButton(tooltip: 'Refresh list', onPressed: _busy ? null : _refreshSavedFirmwares, icon: const Icon(Icons.refresh_rounded)),
-        ]),
-        if (_savedFirmwares.isEmpty)
-          const Card(child: Padding(padding: EdgeInsets.all(18), child: Text('No unpacked firmware yet. Completed firmware folders appear here.', style: TextStyle(color: Colors.white60))))
-        else
-          ..._savedFirmwares.map((firmware) => Card(child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            child: Row(children: [
-              const Icon(Icons.folder_copy_outlined, color: Color(0xFFB8F36B), size: 28),
-              const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p.basename(firmware.path), style: const TextStyle(fontWeight: FontWeight.w700)),
-                Text(firmware.path, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white38, fontSize: 11)),
-              ])),
-              IconButton(tooltip: 'Open firmware folder', onPressed: () => _openDirectory(firmware.path), icon: const Icon(Icons.folder_open_rounded)),
-              IconButton(tooltip: 'Delete firmware', onPressed: _busy ? null : () => _deleteFirmware(firmware), icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFFF7777))),
-            ]),
-          ))),
-      ]),
-    );
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final panel = dark ? const Color(0xFF292929) : Colors.white;
+    final inset = dark ? const Color(0xFF242424) : const Color(0xFFF3F4F6);
+    final muted = dark ? Colors.white60 : Colors.black54;
+    const accent = Color(0xFF55C985);
+    Widget card(Widget child) => Container(padding: const EdgeInsets.all(11), decoration: BoxDecoration(color: panel, borderRadius: BorderRadius.circular(11), border: Border.all(color: dark ? const Color(0xFF343434) : const Color(0xFFE1E4E8))), child: child);
+    Widget tile(String label, String value, Color color) => Container(padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: color.withValues(alpha: .13), borderRadius: BorderRadius.circular(8)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: TextStyle(color: color, fontSize: 10)), const SizedBox(height: 4), Text(value, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))]));
+    return LayoutBuilder(builder: (context, constraints) {
+      final compact = constraints.maxWidth < 760;
+      final description = card(Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.info_rounded, color: Color(0xFF72BDEB), size: 17), const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Description:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)), const SizedBox(height: 4), Text('Unpack full Android OTA firmware packages and organize extracted images for flashing. Temporary ZIP and payload files are removed after processing.', style: TextStyle(color: muted, fontSize: 11, height: 1.35))])), IconButton(visualDensity: VisualDensity.compact, onPressed: () => setState(() => _aboutExpanded = false), icon: const Icon(Icons.close, size: 17))]));
+      final left = card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('MODE', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600)), const SizedBox(height: 7),
+        Container(width: double.infinity, padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)), child: const Row(children: [Icon(Icons.inventory_2_outlined, size: 16, color: Color(0xFF72BDEB)), SizedBox(width: 8), Text('Local Unpacker', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))])),
+        const SizedBox(height: 12), Divider(color: dark ? const Color(0xFF414141) : const Color(0xFFE1E4E8), height: 1), const SizedBox(height: 8),
+        Row(children: [Expanded(child: Text('OTA FILE', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600))), IconButton(visualDensity: VisualDensity.compact, onPressed: _busy ? null : _chooseFirmwareArchive, icon: const Icon(Icons.folder_open, size: 17, color: Color(0xFF72BDEB)))]),
+        Container(width: double.infinity, padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)), child: Text(_firmwareArchive == null ? 'No OTA ZIP selected' : p.basename(_firmwareArchive!), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: _firmwareArchive == null ? muted : null))),
+        const SizedBox(height: 12), Divider(color: dark ? const Color(0xFF414141) : const Color(0xFFE1E4E8), height: 1), const SizedBox(height: 8),
+        Row(children: [Expanded(child: Text('UNPACKED FIRMWARES', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600))), IconButton(visualDensity: VisualDensity.compact, onPressed: _busy ? null : _refreshSavedFirmwares, icon: const Icon(Icons.refresh, size: 16))]),
+        Expanded(child: _savedFirmwares.isEmpty ? Align(alignment: Alignment.topLeft, child: Text('Nothing unpacked yet', style: TextStyle(color: muted, fontSize: 11))) : ListView(padding: EdgeInsets.zero, children: _savedFirmwares.map((firmware) => ListTile(dense: true, visualDensity: VisualDensity.compact, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.folder_outlined, color: Color(0xFFD9AA45), size: 17), title: Text(p.basename(firmware.path), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)), onTap: () => setState(() => _activeFirmwareDirectory = firmware.path), trailing: PopupMenuButton<String>(padding: EdgeInsets.zero, iconSize: 16, onSelected: (v) { if (v == 'open') _openDirectory(firmware.path); if (v == 'delete') _deleteFirmware(firmware); }, itemBuilder: (_) => const [PopupMenuItem(value: 'open', child: Text('Open folder')), PopupMenuItem(value: 'delete', child: Text('Delete firmware'))])).toList())),
+        Divider(color: dark ? const Color(0xFF414141) : const Color(0xFFE1E4E8), height: 1), InkWell(onTap: () async { final root = await _firmwareLibraryDirectory(); await _openDirectory(_activeFirmwareDirectory ?? root.path); }, child: const Padding(padding: EdgeInsets.only(top: 9), child: Row(children: [Icon(Icons.folder_outlined, color: Color(0xFFD9AA45), size: 16), SizedBox(width: 8), Text('Destination Folder', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))]))),
+      ]));
+      final center = card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [Icon(Icons.inventory_2_outlined, color: Color(0xFF72BDEB), size: 19), SizedBox(width: 8), Text('Local Unpacker', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700))]),
+        const SizedBox(height: 15), Text('Firmware Information', style: TextStyle(color: muted, fontSize: 11)), const SizedBox(height: 8),
+        GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), mainAxisSpacing: 7, crossAxisSpacing: 7, childAspectRatio: compact ? 2.6 : 1.9, children: [tile('Selected ZIP', _firmwareArchive == null ? 'Not selected' : p.basenameWithoutExtension(_firmwareArchive!), const Color(0xFF72BDEB)), tile('Progress', (_unpackProgress * 100).round().toString() + '%', accent), tile('Status', _busy ? 'Unpacking' : (_unpackProgress >= 1 ? 'Completed' : 'Ready'), const Color(0xFFC1A6FF)), tile('Output', _activeFirmwareDirectory == null ? 'Firmware folder' : p.basename(_activeFirmwareDirectory!), const Color(0xFFE1C45A))]),
+        const SizedBox(height: 12), TextField(controller: _firmwareNameController, enabled: !_busy, decoration: const InputDecoration(labelText: 'Firmware folder name (optional)', hintText: 'Defaults to ZIP filename', prefixIcon: Icon(Icons.drive_file_rename_outline), isDense: true)), const SizedBox(height: 12),
+        Row(children: [Expanded(child: OutlinedButton.icon(onPressed: _busy ? null : _chooseFirmwareArchive, icon: const Icon(Icons.folder_open, size: 16), label: const Text('File Picker'))), const SizedBox(width: 8), Expanded(child: FilledButton.icon(onPressed: _busy ? _stopUnpack : _extractFirmware, icon: Icon(_busy ? Icons.stop_rounded : Icons.unarchive_outlined, size: 16), label: Text(_busy ? 'Cancel' : 'Unpack')))]),
+        if (_busy) TextButton.icon(onPressed: _stopUnpack, icon: const Icon(Icons.cleaning_services_outlined, size: 15), label: const Text('Stop and clean up')), const Spacer(),
+        Text('OUTPUT LOCATION', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600)), const SizedBox(height: 5), Text(_activeFirmwareDirectory ?? 'Firmware folder beside the app (or AppData if unavailable)', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontSize: 10)),
+      ]));
+      final right = card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [Icon(Icons.terminal_rounded, color: accent, size: 18), SizedBox(width: 8), Expanded(child: Text('Log Output Window', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)))]), const SizedBox(height: 10),
+        Row(children: [Expanded(child: Text(_unpackStatus, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))), if (_busy) TextButton(onPressed: _stopUnpack, child: const Text('Cancel', style: TextStyle(fontSize: 10)))]), const SizedBox(height: 7),
+        Expanded(child: Container(width: double.infinity, padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)), child: _log.isEmpty ? Align(alignment: Alignment.topLeft, child: Text('Waiting for extraction output…', style: TextStyle(color: muted, fontSize: 10))) : ListView.builder(reverse: true, itemCount: _log.length, itemBuilder: (context, index) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(_log[index], style: TextStyle(fontFamily: 'Consolas', fontSize: 10, color: muted))))),
+        const SizedBox(height: 10), Row(children: [const Expanded(child: Text('Unpacking Progress', style: TextStyle(fontSize: 11))), Text((_unpackProgress * 100).round().toString() + '%', style: TextStyle(color: muted, fontSize: 10))]), const SizedBox(height: 7),
+        ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _busy && _unpackProgress == 0 ? null : _unpackProgress, minHeight: 6, backgroundColor: dark ? const Color(0xFF3A3A3A) : const Color(0xFFE0E4E8), color: accent)), const SizedBox(height: 9),
+        Container(padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)), child: Row(children: [Icon(_unpackProgress >= 1 ? Icons.check_circle : (_busy ? Icons.autorenew : Icons.circle_outlined), size: 14, color: _unpackProgress >= 1 ? accent : muted), const SizedBox(width: 7), Expanded(child: Text(_unpackProgress >= 1 ? 'Payload images extracted' : (_busy ? 'Extracting payload images…' : 'Ready to unpack'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600))), Text(_unpackProgress >= 1 ? 'Completed' : (_busy ? 'Running' : 'Waiting'), style: TextStyle(fontSize: 10, color: _unpackProgress >= 1 ? accent : muted))])),
+      ]));
+      if (compact) return Column(children: [if (_aboutExpanded) description, if (_aboutExpanded) const SizedBox(height: 8), Expanded(child: Row(children: [SizedBox(width: constraints.maxWidth * .38, child: left), const SizedBox(width: 8), Expanded(child: center)])), const SizedBox(height: 8), SizedBox(height: constraints.maxHeight * .38, child: right)]);
+      return Column(children: [if (_aboutExpanded) description, if (_aboutExpanded) const SizedBox(height: 10), Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [SizedBox(width: constraints.maxWidth * .265, child: left), const SizedBox(width: 10), Expanded(child: center), const SizedBox(width: 10), SizedBox(width: constraints.maxWidth * .345, child: right)]))]);
+    });
   }
-
   Widget _flasherPanel() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
