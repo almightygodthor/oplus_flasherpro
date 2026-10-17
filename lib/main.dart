@@ -197,8 +197,11 @@ class _FlasherHomeState extends State<FlasherHome> {
   }
 
   Future<Directory> _firmwareLibraryDirectory() async {
-    final installDir = Directory(p.dirname(Platform.resolvedExecutable));
-    final preferred = Directory(p.join(installDir.path, 'Firmware'));
+    // Keep extracted firmware in a predictable folder directly under the
+    // Windows system drive, rather than inside the per-user app installation.
+    final systemDrive = Platform.environment['SystemDrive'] ??
+        (Platform.isWindows ? 'C:' : Directory.current.path);
+    final preferred = Directory(p.join(systemDrive, 'FlasherPro', 'Firmware'));
     try {
       await preferred.create(recursive: true);
       final probe = File(p.join(preferred.path, '.write_test'));
@@ -206,6 +209,7 @@ class _FlasherHomeState extends State<FlasherHome> {
       await probe.delete();
       return preferred;
     } catch (_) {
+      // Fall back gracefully when the system drive is not writable.
       final local = Platform.environment['LOCALAPPDATA'] ??
           Platform.environment['USERPROFILE'] ?? Directory.systemTemp.path;
       final fallback = Directory(p.join(local, 'FlasherPro', 'Firmware'));
@@ -1236,12 +1240,28 @@ class _FlasherHomeState extends State<FlasherHome> {
         const SizedBox(height: 12), TextField(controller: _firmwareNameController, enabled: !_busy, decoration: const InputDecoration(labelText: 'Firmware folder name (optional)', hintText: 'Defaults to ZIP filename', prefixIcon: Icon(Icons.drive_file_rename_outline), isDense: true)), const SizedBox(height: 12),
         Row(children: [Expanded(child: OutlinedButton.icon(onPressed: _busy ? null : _chooseFirmwareArchive, icon: const Icon(Icons.folder_open, size: 16), label: const Text('File Picker'))), const SizedBox(width: 8), Expanded(child: FilledButton.icon(onPressed: _busy ? _stopUnpack : _extractFirmware, icon: Icon(_busy ? Icons.stop_rounded : Icons.unarchive_outlined, size: 16), label: Text(_busy ? 'Cancel' : 'Unpack')))]),
         if (_busy) TextButton.icon(onPressed: _stopUnpack, icon: const Icon(Icons.cleaning_services_outlined, size: 15), label: const Text('Stop and clean up')), const Spacer(),
-        Text('OUTPUT LOCATION', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600)), const SizedBox(height: 5), Text(_activeFirmwareDirectory ?? 'Firmware folder beside the app (or AppData if unavailable)', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontSize: 10)),
+        Text('OUTPUT LOCATION', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600)), const SizedBox(height: 5), Text(_activeFirmwareDirectory ?? r'C:\FlasherPro\Firmware (default; AppData if unavailable)', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: muted, fontSize: 10)),
       ]));
       final right = card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const Row(children: [Icon(Icons.terminal_rounded, color: accent, size: 18), SizedBox(width: 8), Expanded(child: Text('Log Output Window', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)))]), const SizedBox(height: 10),
         Row(children: [Expanded(child: Text(_unpackStatus, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11))), if (_busy) TextButton(onPressed: _stopUnpack, child: const Text('Cancel', style: TextStyle(fontSize: 10)))]), const SizedBox(height: 7),
-        Expanded(child: Container(width: double.infinity, padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)), child: _log.isEmpty ? Align(alignment: Alignment.topLeft, child: Text('Waiting for extraction output…', style: TextStyle(color: muted, fontSize: 10))) : ListView.builder(reverse: true, itemCount: _log.length, itemBuilder: (context, index) => Padding(padding: const EdgeInsets.only(bottom: 4), child: Text(_log[index], style: TextStyle(fontFamily: 'Consolas', fontSize: 10, color: muted))))),
+        Expanded(
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)),
+            child: _log.isEmpty
+                ? Align(alignment: Alignment.topLeft, child: Text('Waiting for extraction output…', style: TextStyle(color: muted, fontSize: 10)))
+                : ListView.builder(
+                    reverse: true,
+                    itemCount: _log.length,
+                    itemBuilder: (context, index) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(_log[index], style: TextStyle(fontFamily: 'Consolas', fontSize: 10, color: muted)),
+                    ),
+                  ),
+          ),
+        ),
         const SizedBox(height: 10), Row(children: [const Expanded(child: Text('Unpacking Progress', style: TextStyle(fontSize: 11))), Text((_unpackProgress * 100).round().toString() + '%', style: TextStyle(color: muted, fontSize: 10))]), const SizedBox(height: 7),
         ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _busy && _unpackProgress == 0 ? null : _unpackProgress, minHeight: 6, backgroundColor: dark ? const Color(0xFF3A3A3A) : const Color(0xFFE0E4E8), color: accent)), const SizedBox(height: 9),
         Container(padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)), child: Row(children: [Icon(_unpackProgress >= 1 ? Icons.check_circle : (_busy ? Icons.autorenew : Icons.circle_outlined), size: 14, color: _unpackProgress >= 1 ? accent : muted), const SizedBox(width: 7), Expanded(child: Text(_unpackProgress >= 1 ? 'Payload images extracted' : (_busy ? 'Extracting payload images…' : 'Ready to unpack'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600))), Text(_unpackProgress >= 1 ? 'Completed' : (_busy ? 'Running' : 'Waiting'), style: TextStyle(fontSize: 10, color: _unpackProgress >= 1 ? accent : muted))])),
