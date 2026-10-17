@@ -518,7 +518,7 @@ class _FlasherHomeState extends State<FlasherHome> {
           barrierDismissible: false,
           builder: (dialogContext) => AlertDialog(
             title: const Text('Unpacking Completed'),
-            content: Text('Successfully unpacked ' + images.length.toString() + ' images into "' + safeName + '". Please proceed to the Firmware Flasher tab to flash it.'),
+            content: Text('Successfully unpacked ${images.length} images into "$safeName". Please proceed to the Firmware Flasher tab to flash it.'),
             actions: [FilledButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Close'))],
           ),
         );
@@ -1262,7 +1262,7 @@ class _FlasherHomeState extends State<FlasherHome> {
                   ),
           ),
         ),
-        const SizedBox(height: 10), Row(children: [const Expanded(child: Text('Unpacking Progress', style: TextStyle(fontSize: 11))), Text((_unpackProgress * 100).round().toString() + '%', style: TextStyle(color: muted, fontSize: 10))]), const SizedBox(height: 7),
+        const SizedBox(height: 10), Row(children: [const Expanded(child: Text('Unpacking Progress', style: TextStyle(fontSize: 11))), Text('${(_unpackProgress * 100).round()}%', style: TextStyle(color: muted, fontSize: 10))]), const SizedBox(height: 7),
         ClipRRect(borderRadius: BorderRadius.circular(99), child: LinearProgressIndicator(value: _busy && _unpackProgress == 0 ? null : _unpackProgress, minHeight: 6, backgroundColor: dark ? const Color(0xFF3A3A3A) : const Color(0xFFE0E4E8), color: accent)), const SizedBox(height: 9),
         Container(padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)), child: Row(children: [Icon(_unpackProgress >= 1 ? Icons.check_circle : (_busy ? Icons.autorenew : Icons.circle_outlined), size: 14, color: _unpackProgress >= 1 ? accent : muted), const SizedBox(width: 7), Expanded(child: Text(_unpackProgress >= 1 ? 'Payload images extracted' : (_busy ? 'Extracting payload images…' : 'Ready to unpack'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600))), Text(_unpackProgress >= 1 ? 'Completed' : (_busy ? 'Running' : 'Waiting'), style: TextStyle(fontSize: 10, color: _unpackProgress >= 1 ? accent : muted))])),
       ]));
@@ -1408,32 +1408,6 @@ class _FlasherHomeState extends State<FlasherHome> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _pathRow(String label, String? value, String action, VoidCallback onTap, {IconData? leading}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                decoration: BoxDecoration(color: const Color(0xFF111216), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF30333A))),
-                child: Row(children: [
-                  if (leading != null) ...[Icon(leading, size: 16, color: const Color(0xFFB8F36B)), const SizedBox(width: 8)],
-                  Expanded(child: Text(value ?? 'Choose destination folder', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: value == null ? Colors.white30 : Colors.white70, fontSize: 12))),
-                ]),
-              ),
-            ),
-            const SizedBox(width: 10),
-            OutlinedButton(onPressed: _busy ? null : onTap, child: Text(action)),
-          ],
-        ),
-      ],
     );
   }
 
