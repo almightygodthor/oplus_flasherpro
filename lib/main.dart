@@ -1198,7 +1198,35 @@ class _FlasherHomeState extends State<FlasherHome> {
         Container(width: double.infinity, padding: const EdgeInsets.all(9), decoration: BoxDecoration(color: inset, borderRadius: BorderRadius.circular(7)), child: Text(_firmwareArchive == null ? 'No OTA ZIP selected' : p.basename(_firmwareArchive!), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: _firmwareArchive == null ? muted : null))),
         const SizedBox(height: 12), Divider(color: dark ? const Color(0xFF414141) : const Color(0xFFE1E4E8), height: 1), const SizedBox(height: 8),
         Row(children: [Expanded(child: Text('UNPACKED FIRMWARES', style: TextStyle(color: muted, fontSize: 10, fontWeight: FontWeight.w600))), IconButton(visualDensity: VisualDensity.compact, onPressed: _busy ? null : _refreshSavedFirmwares, icon: const Icon(Icons.refresh, size: 16))]),
-        Expanded(child: _savedFirmwares.isEmpty ? Align(alignment: Alignment.topLeft, child: Text('Nothing unpacked yet', style: TextStyle(color: muted, fontSize: 11))) : ListView(padding: EdgeInsets.zero, children: _savedFirmwares.map((firmware) => ListTile(dense: true, visualDensity: VisualDensity.compact, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.folder_outlined, color: Color(0xFFD9AA45), size: 17), title: Text(p.basename(firmware.path), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)), onTap: () => setState(() => _activeFirmwareDirectory = firmware.path), trailing: PopupMenuButton<String>(padding: EdgeInsets.zero, iconSize: 16, onSelected: (v) { if (v == 'open') _openDirectory(firmware.path); if (v == 'delete') _deleteFirmware(firmware); }, itemBuilder: (_) => const [PopupMenuItem(value: 'open', child: Text('Open folder')), PopupMenuItem(value: 'delete', child: Text('Delete firmware'))])).toList())),
+        Expanded(
+          child: _savedFirmwares.isEmpty
+              ? Align(alignment: Alignment.topLeft, child: Text('Nothing unpacked yet', style: TextStyle(color: muted, fontSize: 11)))
+              : ListView(
+                  padding: EdgeInsets.zero,
+                  children: _savedFirmwares.map<Widget>((firmware) {
+                    return ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.folder_outlined, color: Color(0xFFD9AA45), size: 17),
+                      title: Text(p.basename(firmware.path), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 10)),
+                      onTap: () => setState(() => _activeFirmwareDirectory = firmware.path),
+                      trailing: PopupMenuButton<String>(
+                        padding: EdgeInsets.zero,
+                        iconSize: 16,
+                        onSelected: (value) {
+                          if (value == 'open') _openDirectory(firmware.path);
+                          if (value == 'delete') _deleteFirmware(firmware);
+                        },
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(value: 'open', child: Text('Open folder')),
+                          PopupMenuItem(value: 'delete', child: Text('Delete firmware')),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
         Divider(color: dark ? const Color(0xFF414141) : const Color(0xFFE1E4E8), height: 1), InkWell(onTap: () async { final root = await _firmwareLibraryDirectory(); await _openDirectory(_activeFirmwareDirectory ?? root.path); }, child: const Padding(padding: EdgeInsets.only(top: 9), child: Row(children: [Icon(Icons.folder_outlined, color: Color(0xFFD9AA45), size: 16), SizedBox(width: 8), Text('Destination Folder', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600))]))),
       ]));
       final center = card(Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
